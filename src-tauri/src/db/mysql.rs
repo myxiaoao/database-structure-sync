@@ -21,6 +21,10 @@ impl MySqlDriver {
             .await?;
         Ok(Self { pool })
     }
+
+    pub fn pool(&self) -> &Pool<MySql> {
+        &self.pool
+    }
 }
 
 #[async_trait]

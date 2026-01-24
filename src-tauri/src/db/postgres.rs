@@ -21,6 +21,10 @@ impl PostgresDriver {
             .await?;
         Ok(Self { pool })
     }
+
+    pub fn pool(&self) -> &PgPool {
+        &self.pool
+    }
 }
 
 #[async_trait]
