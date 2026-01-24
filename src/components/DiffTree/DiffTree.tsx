@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ChevronDown,
@@ -27,36 +27,24 @@ interface GroupedDiff {
   items: DiffItem[];
 }
 
-function getDiffIcon(diffType: string) {
-  if (diffType.includes('Added')) {
-    return <Plus className="h-4 w-4 text-green-500" />;
-  }
-  if (diffType.includes('Removed')) {
-    return <Minus className="h-4 w-4 text-red-500" />;
-  }
-  if (diffType.includes('Modified')) {
-    return <Edit className="h-4 w-4 text-yellow-500" />;
-  }
+function getDiffIcon(diffType: string): React.ReactNode {
+  if (diffType.includes('Added')) return <Plus className="h-4 w-4 text-green-500" />;
+  if (diffType.includes('Removed')) return <Minus className="h-4 w-4 text-red-500" />;
+  if (diffType.includes('Modified')) return <Edit className="h-4 w-4 text-yellow-500" />;
   return <Table className="h-4 w-4" />;
 }
 
-function getTypeIcon(diffType: string) {
-  if (diffType.startsWith('Table')) {
-    return <Table className="h-4 w-4 text-muted-foreground" />;
-  }
-  if (diffType.startsWith('Column')) {
-    return <Edit className="h-4 w-4 text-muted-foreground" />;
-  }
-  if (diffType.startsWith('Index')) {
-    return <Key className="h-4 w-4 text-muted-foreground" />;
-  }
-  if (diffType.startsWith('ForeignKey')) {
-    return <Link className="h-4 w-4 text-muted-foreground" />;
-  }
-  if (diffType.startsWith('UniqueConstraint')) {
-    return <Fingerprint className="h-4 w-4 text-muted-foreground" />;
-  }
-  return <Table className="h-4 w-4 text-muted-foreground" />;
+const typeIconMap: Record<string, React.ReactNode> = {
+  Table: <Table className="h-4 w-4 text-muted-foreground" />,
+  Column: <Edit className="h-4 w-4 text-muted-foreground" />,
+  Index: <Key className="h-4 w-4 text-muted-foreground" />,
+  ForeignKey: <Link className="h-4 w-4 text-muted-foreground" />,
+  UniqueConstraint: <Fingerprint className="h-4 w-4 text-muted-foreground" />,
+};
+
+function getTypeIcon(diffType: string): React.ReactNode {
+  const prefix = diffType.replace(/(Added|Removed|Modified)$/, '');
+  return typeIconMap[prefix] || typeIconMap.Table;
 }
 
 function getDiffLabel(diffType: string, t: (key: string) => string): string {

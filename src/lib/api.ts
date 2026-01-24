@@ -1,9 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
 
-export interface Connection {
-  id: string;
+export type DbType = 'MySQL' | 'PostgreSQL' | 'MariaDB';
+export type SshAuthMethod = 'Password' | 'PrivateKey';
+
+interface ConnectionBase {
   name: string;
-  db_type: 'MySQL' | 'PostgreSQL' | 'MariaDB';
+  db_type: DbType;
   host: string;
   port: number;
   username: string;
@@ -13,7 +15,7 @@ export interface Connection {
   ssh_host?: string;
   ssh_port?: number;
   ssh_username?: string;
-  ssh_auth_method?: 'Password' | 'PrivateKey';
+  ssh_auth_method?: SshAuthMethod;
   ssh_password?: string;
   ssh_private_key_path?: string;
   ssh_passphrase?: string;
@@ -24,28 +26,12 @@ export interface Connection {
   ssl_verify_server_cert?: boolean;
 }
 
-export interface ConnectionInput {
+export interface Connection extends ConnectionBase {
+  id: string;
+}
+
+export interface ConnectionInput extends ConnectionBase {
   id?: string;
-  name: string;
-  db_type: 'MySQL' | 'PostgreSQL' | 'MariaDB';
-  host: string;
-  port: number;
-  username: string;
-  password: string;
-  database: string;
-  ssh_enabled: boolean;
-  ssh_host?: string;
-  ssh_port?: number;
-  ssh_username?: string;
-  ssh_auth_method?: 'Password' | 'PrivateKey';
-  ssh_password?: string;
-  ssh_private_key_path?: string;
-  ssh_passphrase?: string;
-  ssl_enabled: boolean;
-  ssl_ca_cert_path?: string;
-  ssl_client_cert_path?: string;
-  ssl_client_key_path?: string;
-  ssl_verify_server_cert?: boolean;
 }
 
 export interface DiffItem {

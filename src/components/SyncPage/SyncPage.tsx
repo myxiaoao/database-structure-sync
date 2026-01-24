@@ -60,13 +60,10 @@ export function SyncPage({ connections }: SyncPageProps) {
 
   const selectedSql = useMemo(() => {
     if (!diffResult) return '';
-    const sqls: string[] = [];
-    diffResult.items.forEach((item) => {
-      if (selectedItems.has(item.id)) {
-        sqls.push(item.sql);
-      }
-    });
-    return sqls.join('\n\n');
+    return diffResult.items
+      .filter((item) => selectedItems.has(item.id))
+      .map((item) => item.sql)
+      .join('\n\n');
   }, [diffResult, selectedItems]);
 
   const handleExecute = async () => {

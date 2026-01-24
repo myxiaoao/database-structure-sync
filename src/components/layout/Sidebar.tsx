@@ -28,26 +28,17 @@ export function Sidebar({
   onSelectConnection,
   selectedId,
 }: SidebarProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (id: string) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const toggleLanguage = () => {
-    const newLang = i18n.language === 'en' ? 'zh' : 'en';
-    i18n.changeLanguage(newLang);
-    localStorage.setItem('language', newLang);
-  };
-
   return (
     <div className="w-64 border-r bg-muted/30 flex flex-col">
-      <div className="p-4 border-b flex items-center justify-between">
+      <div className="p-4 border-b">
         <h2 className="font-semibold text-sm">{t('connection.title')}</h2>
-        <Button variant="ghost" size="sm" onClick={toggleLanguage}>
-          {i18n.language === 'en' ? '中文' : 'EN'}
-        </Button>
       </div>
 
       <ScrollArea className="flex-1">

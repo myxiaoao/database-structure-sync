@@ -52,6 +52,21 @@ impl ConfigStore {
         Ok(Self { pool })
     }
 
+    fn fetch_connection_passwords(row: &ConnectionRow) -> (String, Option<String>, Option<String>) {
+        let password = crypto::get_password(&row.id).unwrap_or_default();
+        let ssh_password = if row.ssh_enabled == 1 && row.ssh_auth_method.as_deref() == Some("password") {
+            crypto::get_password(&format!("{}_ssh", row.id)).ok()
+        } else {
+            None
+        };
+        let ssh_passphrase = if row.ssh_enabled == 1 && row.ssh_auth_method.as_deref() == Some("privatekey") {
+            crypto::get_password(&format!("{}_ssh_passphrase", row.id)).ok()
+        } else {
+            None
+        };
+        (password, ssh_password, ssh_passphrase)
+    }
+
     pub async fn list_connections(&self) -> Result<Vec<Connection>> {
         let rows = sqlx::query_as::<_, ConnectionRow>(
             "SELECT * FROM connections ORDER BY name"
@@ -59,21 +74,13 @@ impl ConfigStore {
         .fetch_all(&self.pool)
         .await?;
 
-        let mut connections = Vec::new();
-        for row in rows {
-            let password = crypto::get_password(&row.id).unwrap_or_default();
-            let ssh_password = if row.ssh_enabled == 1 && row.ssh_auth_method.as_deref() == Some("password") {
-                crypto::get_password(&format!("{}_ssh", row.id)).ok()
-            } else {
-                None
-            };
-            let ssh_passphrase = if row.ssh_enabled == 1 && row.ssh_auth_method.as_deref() == Some("privatekey") {
-                crypto::get_password(&format!("{}_ssh_passphrase", row.id)).ok()
-            } else {
-                None
-            };
-            connections.push(row.into_connection(password, ssh_password, ssh_passphrase));
-        }
+        let connections = rows
+            .into_iter()
+            .map(|row| {
+                let (password, ssh_password, ssh_passphrase) = Self::fetch_connection_passwords(&row);
+                row.into_connection(password, ssh_password, ssh_passphrase)
+            })
+            .collect();
 
         Ok(connections)
     }
@@ -86,23 +93,10 @@ impl ConfigStore {
         .fetch_optional(&self.pool)
         .await?;
 
-        match row {
-            Some(row) => {
-                let password = crypto::get_password(&row.id).unwrap_or_default();
-                let ssh_password = if row.ssh_enabled == 1 && row.ssh_auth_method.as_deref() == Some("password") {
-                    crypto::get_password(&format!("{}_ssh", row.id)).ok()
-                } else {
-                    None
-                };
-                let ssh_passphrase = if row.ssh_enabled == 1 && row.ssh_auth_method.as_deref() == Some("privatekey") {
-                    crypto::get_password(&format!("{}_ssh_passphrase", row.id)).ok()
-                } else {
-                    None
-                };
-                Ok(Some(row.into_connection(password, ssh_password, ssh_passphrase)))
-            }
-            None => Ok(None),
-        }
+        Ok(row.map(|row| {
+            let (password, ssh_password, ssh_passphrase) = Self::fetch_connection_passwords(&row);
+            row.into_connection(password, ssh_password, ssh_passphrase)
+        }))
     }
 
     pub async fn save_connection(&self, input: ConnectionInput) -> Result<Connection> {

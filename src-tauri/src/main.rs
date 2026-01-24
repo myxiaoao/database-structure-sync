@@ -18,87 +18,86 @@ pub struct AppState {
     pub active_tunnels: Arc<Mutex<Vec<SshTunnel>>>,
 }
 
-/// Create a database driver based on connection configuration
-async fn create_reader(conn: &Connection) -> AppResult<Box<dyn SchemaReader>> {
-    let (host, port) = if let Some(ssh) = &conn.ssh_config {
+/// Resolve connection host and port, applying SSH tunnel if configured
+fn resolve_connection_endpoint(conn: &Connection) -> (String, u16) {
+    if let Some(ssh) = &conn.ssh_config {
         if ssh.enabled {
             info!("Creating SSH tunnel for connection: {}", conn.name);
             // When SSH is enabled, we'd connect through the tunnel
             // For now, use direct connection (tunnel implementation pending)
             warn!("SSH tunnel not yet fully implemented, using direct connection");
-            (conn.host.clone(), conn.port)
-        } else {
-            (conn.host.clone(), conn.port)
-        }
-    } else {
-        (conn.host.clone(), conn.port)
-    };
-
-    let ssl_config = conn.ssl_config.as_ref();
-
-    match conn.db_type {
-        DbType::MySQL | DbType::MariaDB => {
-            info!("Creating MySQL/MariaDB driver for: {}", conn.name);
-            let driver = MySqlDriver::new_with_ssl(
-                &host,
-                port,
-                &conn.username,
-                &conn.password,
-                &conn.database,
-                ssl_config,
-            )
-            .await
-            .map_err(|e| AppError::Connection(e.to_string()))?;
-            Ok(Box::new(driver))
-        }
-        DbType::PostgreSQL => {
-            info!("Creating PostgreSQL driver for: {}", conn.name);
-            let driver = PostgresDriver::new_with_ssl(
-                &host,
-                port,
-                &conn.username,
-                &conn.password,
-                &conn.database,
-                ssl_config,
-            )
-            .await
-            .map_err(|e| AppError::Connection(e.to_string()))?;
-            Ok(Box::new(driver))
         }
     }
+    (conn.host.clone(), conn.port)
 }
 
-/// Create a SQL generator based on connection configuration
-async fn create_sql_generator(conn: &Connection) -> AppResult<Box<dyn SqlGenerator>> {
-    let ssl_config = conn.ssl_config.as_ref();
+/// Database driver that implements both SchemaReader and SqlGenerator
+enum DatabaseDriver {
+    MySql(MySqlDriver),
+    Postgres(PostgresDriver),
+}
 
-    match conn.db_type {
-        DbType::MySQL | DbType::MariaDB => {
-            let driver = MySqlDriver::new_with_ssl(
-                &conn.host,
-                conn.port,
-                &conn.username,
-                &conn.password,
-                &conn.database,
-                ssl_config,
-            )
-            .await
-            .map_err(|e| AppError::Connection(e.to_string()))?;
-            Ok(Box::new(driver))
+impl DatabaseDriver {
+    async fn create(conn: &Connection) -> AppResult<Self> {
+        let (host, port) = resolve_connection_endpoint(conn);
+        let ssl_config = conn.ssl_config.as_ref();
+
+        match conn.db_type {
+            DbType::MySQL | DbType::MariaDB => {
+                info!("Creating MySQL/MariaDB driver for: {}", conn.name);
+                let driver = MySqlDriver::new_with_ssl(
+                    &host,
+                    port,
+                    &conn.username,
+                    &conn.password,
+                    &conn.database,
+                    ssl_config,
+                )
+                .await
+                .map_err(|e| AppError::Connection(e.to_string()))?;
+                Ok(DatabaseDriver::MySql(driver))
+            }
+            DbType::PostgreSQL => {
+                info!("Creating PostgreSQL driver for: {}", conn.name);
+                let driver = PostgresDriver::new_with_ssl(
+                    &host,
+                    port,
+                    &conn.username,
+                    &conn.password,
+                    &conn.database,
+                    ssl_config,
+                )
+                .await
+                .map_err(|e| AppError::Connection(e.to_string()))?;
+                Ok(DatabaseDriver::Postgres(driver))
+            }
         }
-        DbType::PostgreSQL => {
-            let driver = PostgresDriver::new_with_ssl(
-                &conn.host,
-                conn.port,
-                &conn.username,
-                &conn.password,
-                &conn.database,
-                ssl_config,
-            )
-            .await
-            .map_err(|e| AppError::Connection(e.to_string()))?;
-            Ok(Box::new(driver))
+    }
+
+    fn as_reader(&self) -> &dyn SchemaReader {
+        match self {
+            DatabaseDriver::MySql(d) => d,
+            DatabaseDriver::Postgres(d) => d,
         }
+    }
+
+    fn as_sql_generator(&self) -> &dyn SqlGenerator {
+        match self {
+            DatabaseDriver::MySql(d) => d,
+            DatabaseDriver::Postgres(d) => d,
+        }
+    }
+
+    async fn execute_sql(&self, sql: &str) -> Result<(), sqlx::Error> {
+        match self {
+            DatabaseDriver::MySql(d) => {
+                sqlx::query(sql).execute(d.pool()).await?;
+            }
+            DatabaseDriver::Postgres(d) => {
+                sqlx::query(sql).execute(d.pool()).await?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -164,7 +163,6 @@ async fn delete_connection(state: State<'_, AppState>, id: String) -> Result<(),
 async fn test_connection(input: ConnectionInput) -> Result<(), String> {
     info!("Testing connection: {} ({})", input.name, input.host);
 
-    // Create a temporary connection object for the factory
     let temp_conn = Connection {
         id: String::new(),
         name: input.name.clone(),
@@ -180,12 +178,12 @@ async fn test_connection(input: ConnectionInput) -> Result<(), String> {
         updated_at: String::new(),
     };
 
-    let reader = create_reader(&temp_conn).await.map_err(|e| {
+    let driver = DatabaseDriver::create(&temp_conn).await.map_err(|e| {
         error!("Failed to create driver for test: {}", e);
         e.to_string()
     })?;
 
-    reader.test_connection().await.map_err(|e| {
+    driver.as_reader().test_connection().await.map_err(|e| {
         error!("Connection test failed: {}", e);
         e.to_string()
     })?;
@@ -228,7 +226,7 @@ async fn compare_databases(
         "Connecting to source: {} ({})",
         source_conn.name, source_conn.db_type
     );
-    let source_reader = create_reader(&source_conn).await.map_err(|e| {
+    let source_driver = DatabaseDriver::create(&source_conn).await.map_err(|e| {
         error!("Failed to connect to source: {}", e);
         e.to_string()
     })?;
@@ -237,25 +235,20 @@ async fn compare_databases(
         "Connecting to target: {} ({})",
         target_conn.name, target_conn.db_type
     );
-    let target_reader = create_reader(&target_conn).await.map_err(|e| {
+    let target_driver = DatabaseDriver::create(&target_conn).await.map_err(|e| {
         error!("Failed to connect to target: {}", e);
         e.to_string()
     })?;
 
     info!("Fetching source schema...");
-    let source_tables = source_reader.get_tables().await.map_err(|e| {
+    let source_tables = source_driver.as_reader().get_tables().await.map_err(|e| {
         error!("Failed to get source tables: {}", e);
         e.to_string()
     })?;
 
     info!("Fetching target schema...");
-    let target_tables = target_reader.get_tables().await.map_err(|e| {
+    let target_tables = target_driver.as_reader().get_tables().await.map_err(|e| {
         error!("Failed to get target tables: {}", e);
-        e.to_string()
-    })?;
-
-    let sql_gen = create_sql_generator(&target_conn).await.map_err(|e| {
-        error!("Failed to create SQL generator: {}", e);
         e.to_string()
     })?;
 
@@ -264,7 +257,7 @@ async fn compare_databases(
         source_tables.len(),
         target_tables.len()
     );
-    let items = compare_schemas(&source_tables, &target_tables, sql_gen.as_ref());
+    let items = compare_schemas(&source_tables, &target_tables, target_driver.as_sql_generator());
 
     info!("Comparison complete: {} differences found", items.len());
 
@@ -298,55 +291,17 @@ async fn execute_sync(
         })?;
     drop(store);
 
-    let ssl_config = target_conn.ssl_config.as_ref();
+    let driver = DatabaseDriver::create(&target_conn).await.map_err(|e| {
+        error!("Failed to connect to target: {}", e);
+        e.to_string()
+    })?;
 
-    match target_conn.db_type {
-        DbType::MySQL | DbType::MariaDB => {
-            let driver = MySqlDriver::new_with_ssl(
-                &target_conn.host,
-                target_conn.port,
-                &target_conn.username,
-                &target_conn.password,
-                &target_conn.database,
-                ssl_config,
-            )
-            .await
-            .map_err(|e| {
-                error!("Failed to connect to target: {}", e);
-                e.to_string()
-            })?;
-
-            for (i, sql) in sql_statements.iter().enumerate() {
-                info!("Executing statement {}/{}", i + 1, sql_statements.len());
-                sqlx::query(sql).execute(driver.pool()).await.map_err(|e| {
-                    error!("Failed to execute SQL: {}\nError: {}", sql, e);
-                    format!("Failed to execute: {}\nError: {}", sql, e)
-                })?;
-            }
-        }
-        DbType::PostgreSQL => {
-            let driver = PostgresDriver::new_with_ssl(
-                &target_conn.host,
-                target_conn.port,
-                &target_conn.username,
-                &target_conn.password,
-                &target_conn.database,
-                ssl_config,
-            )
-            .await
-            .map_err(|e| {
-                error!("Failed to connect to target: {}", e);
-                e.to_string()
-            })?;
-
-            for (i, sql) in sql_statements.iter().enumerate() {
-                info!("Executing statement {}/{}", i + 1, sql_statements.len());
-                sqlx::query(sql).execute(driver.pool()).await.map_err(|e| {
-                    error!("Failed to execute SQL: {}\nError: {}", sql, e);
-                    format!("Failed to execute: {}\nError: {}", sql, e)
-                })?;
-            }
-        }
+    for (i, sql) in sql_statements.iter().enumerate() {
+        info!("Executing statement {}/{}", i + 1, sql_statements.len());
+        driver.execute_sql(sql).await.map_err(|e| {
+            error!("Failed to execute SQL: {}\nError: {}", sql, e);
+            format!("Failed to execute: {}\nError: {}", sql, e)
+        })?;
     }
 
     info!("Sync execution completed successfully");
