@@ -1,10 +1,10 @@
-import { ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Sidebar } from './Sidebar';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { LanguageToggle } from '@/components/LanguageToggle';
-import { AppLogo } from '@/components/AppLogo';
-import { Connection } from '@/lib/api';
+import { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { Sidebar } from "./Sidebar";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { AppLogo } from "@/components/AppLogo";
+import { Connection } from "@/lib/api";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -35,7 +35,7 @@ export function MainLayout({
         <header className="flex items-center justify-between px-4 py-2 border-b">
           <div className="flex items-center gap-3">
             <AppLogo size={28} />
-            <span className="font-semibold text-lg">{t('app.title')}</span>
+            <span className="font-semibold text-lg">{t("app.title")}</span>
           </div>
           <div className="flex items-center gap-2">
             <LanguageToggle />

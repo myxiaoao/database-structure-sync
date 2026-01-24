@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { MainLayout } from './components/layout/MainLayout';
-import { ConnectionForm } from './components/ConnectionForm';
-import { SyncPage } from './components/SyncPage';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { useConnections } from './hooks/useConnections';
-import { Connection, ConnectionInput } from './lib/api';
+import { useState } from "react";
+import { MainLayout } from "./components/layout/MainLayout";
+import { ConnectionForm } from "./components/ConnectionForm";
+import { SyncPage } from "./components/SyncPage";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { useConnections } from "./hooks/useConnections";
+import { Connection, ConnectionInput } from "./lib/api";
 
 function App() {
   const { connections, saveConnection, deleteConnection, testConnection } = useConnections();

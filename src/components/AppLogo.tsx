@@ -3,7 +3,7 @@ interface AppLogoProps {
   size?: number;
 }
 
-export function AppLogo({ className = '', size = 32 }: AppLogoProps) {
+export function AppLogo({ className = "", size = 32 }: AppLogoProps) {
   return (
     <svg
       width={size}

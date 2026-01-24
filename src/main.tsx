@@ -10,5 +10,5 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <ThemeProvider defaultTheme="system" storageKey="db-sync-theme">
       <App />
     </ThemeProvider>
-  </React.StrictMode>,
+  </React.StrictMode>
 );

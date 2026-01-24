@@ -1,1 +1,1 @@
-export { ConnectionListSkeleton, SyncPageSkeleton, TableSkeleton } from './LoadingState';
+export { ConnectionListSkeleton, SyncPageSkeleton, TableSkeleton } from "./LoadingState";

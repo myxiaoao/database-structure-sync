@@ -1,1 +1,1 @@
-export { SyncPage } from './SyncPage';
+export { SyncPage } from "./SyncPage";

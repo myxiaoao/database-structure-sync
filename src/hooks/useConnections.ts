@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { api, Connection, ConnectionInput } from '@/lib/api';
+import { useState, useEffect, useCallback } from "react";
+import { api, Connection, ConnectionInput } from "@/lib/api";
 
 export function useConnections() {
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -23,16 +23,22 @@ export function useConnections() {
     fetchConnections();
   }, [fetchConnections]);
 
-  const saveConnection = useCallback(async (input: ConnectionInput) => {
-    const saved = await api.saveConnection(input);
-    await fetchConnections();
-    return saved;
-  }, [fetchConnections]);
+  const saveConnection = useCallback(
+    async (input: ConnectionInput) => {
+      const saved = await api.saveConnection(input);
+      await fetchConnections();
+      return saved;
+    },
+    [fetchConnections]
+  );
 
-  const deleteConnection = useCallback(async (id: string) => {
-    await api.deleteConnection(id);
-    await fetchConnections();
-  }, [fetchConnections]);
+  const deleteConnection = useCallback(
+    async (id: string) => {
+      await api.deleteConnection(id);
+      await fetchConnections();
+    },
+    [fetchConnections]
+  );
 
   const testConnection = useCallback(async (input: ConnectionInput) => {
     await api.testConnection(input);

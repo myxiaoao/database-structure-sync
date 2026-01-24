@@ -2,6 +2,10 @@
 
 A cross-platform desktop application for comparing and synchronizing database table structures between MySQL, PostgreSQL, and MariaDB databases.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Tauri](https://img.shields.io/badge/Tauri-2.x-24C8D8?logo=tauri)](https://tauri.app)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev)
+
 ## Features
 
 - **Multi-Database Support**: MySQL, PostgreSQL, and MariaDB
@@ -24,7 +28,7 @@ A cross-platform desktop application for comparing and synchronizing database ta
 
 ### Pre-built Binaries
 
-Download the latest release for your platform from the [Releases](https://github.com/your-username/database-structure-synchronization/releases) page:
+Download the latest release for your platform from the [Releases](https://github.com/myxiaoao/database-structure-sync/releases) page:
 
 - **macOS**: `.dmg` (Intel and Apple Silicon)
 - **Windows**: `.msi` or `.exe` installer
@@ -55,24 +59,18 @@ sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchel
 
 #### Build Steps
 
-1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/database-structure-synchronization.git
-cd database-structure-synchronization
-```
+# Clone the repository
+git clone https://github.com/myxiaoao/database-structure-sync.git
+cd database-structure-sync
 
-2. Install dependencies:
-```bash
+# Install dependencies
 npm install
-```
 
-3. Run in development mode:
-```bash
+# Run in development mode
 npm run tauri dev
-```
 
-4. Build for production:
-```bash
+# Build for production
 npm run tauri build
 ```
 
@@ -119,7 +117,7 @@ The built application will be in `src-tauri/target/release/bundle/`.
 │   │   ├── ssh/            # SSH tunnel
 │   │   └── storage/        # Config storage
 │   └── tests/              # Integration tests
-└── docs/                   # Documentation
+└── public/                 # Static assets
 ```
 
 ## Tech Stack
@@ -141,21 +139,19 @@ The built application will be in `src-tauri/target/release/bundle/`.
 ### Running Tests
 
 ```bash
+# Frontend tests
+npm run test
+
 # Rust tests
-cd src-tauri
-cargo test
+cd src-tauri && cargo test
 
 # Type checking
 npm run build
 ```
 
-### Project Structure
-
-- `src/` - Frontend React application
-- `src-tauri/` - Rust backend and Tauri configuration
-- `docs/` - Design documents and plans
-
 ## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)

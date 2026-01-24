@@ -1,18 +1,18 @@
-import { useState, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { DiffTree } from '@/components/DiffTree';
-import { SqlPreview } from '@/components/SqlPreview';
-import { api, Connection, DiffItem, DiffResult } from '@/lib/api';
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { DiffTree } from "@/components/DiffTree";
+import { SqlPreview } from "@/components/SqlPreview";
+import { api, Connection, DiffItem, DiffResult } from "@/lib/api";
 
 interface SyncPageProps {
   connections: Connection[];
@@ -20,8 +20,8 @@ interface SyncPageProps {
 
 export function SyncPage({ connections }: SyncPageProps) {
   const { t } = useTranslation();
-  const [sourceId, setSourceId] = useState<string>('');
-  const [targetId, setTargetId] = useState<string>('');
+  const [sourceId, setSourceId] = useState<string>("");
+  const [targetId, setTargetId] = useState<string>("");
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [comparing, setComparing] = useState(false);
@@ -59,11 +59,11 @@ export function SyncPage({ connections }: SyncPageProps) {
   };
 
   const selectedSql = useMemo(() => {
-    if (!diffResult) return '';
+    if (!diffResult) return "";
     return diffResult.items
       .filter((item) => selectedItems.has(item.id))
       .map((item) => item.sql)
-      .join('\n\n');
+      .join("\n\n");
   }, [diffResult, selectedItems]);
 
   const handleExecute = async () => {
@@ -74,7 +74,7 @@ export function SyncPage({ connections }: SyncPageProps) {
 
     try {
       const statements = selectedSql
-        .split('\n\n')
+        .split("\n\n")
         .filter((s) => s.trim())
         .map((s) => s.trim());
       await api.executeSync(targetId, statements);
@@ -96,10 +96,10 @@ export function SyncPage({ connections }: SyncPageProps) {
         <CardContent className="pt-4">
           <div className="flex items-end gap-4">
             <div className="flex-1 space-y-2">
-              <label className="text-sm font-medium">{t('sync.source')}</label>
+              <label className="text-sm font-medium">{t("sync.source")}</label>
               <Select value={sourceId} onValueChange={setSourceId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={t('sync.selectConnection')} />
+                  <SelectValue placeholder={t("sync.selectConnection")} />
                 </SelectTrigger>
                 <SelectContent>
                   {connections.map((conn) => (
@@ -111,10 +111,10 @@ export function SyncPage({ connections }: SyncPageProps) {
               </Select>
             </div>
             <div className="flex-1 space-y-2">
-              <label className="text-sm font-medium">{t('sync.target')}</label>
+              <label className="text-sm font-medium">{t("sync.target")}</label>
               <Select value={targetId} onValueChange={setTargetId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={t('sync.selectConnection')} />
+                  <SelectValue placeholder={t("sync.selectConnection")} />
                 </SelectTrigger>
                 <SelectContent>
                   {connections.map((conn) => (
@@ -125,11 +125,8 @@ export function SyncPage({ connections }: SyncPageProps) {
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              onClick={handleCompare}
-              disabled={!sourceId || !targetId || comparing}
-            >
-              {comparing ? t('common.loading') : t('sync.compare')}
+            <Button onClick={handleCompare} disabled={!sourceId || !targetId || comparing}>
+              {comparing ? t("common.loading") : t("sync.compare")}
             </Button>
           </div>
         </CardContent>
@@ -148,14 +145,14 @@ export function SyncPage({ connections }: SyncPageProps) {
           <Card className="flex flex-col">
             <CardHeader className="py-3 px-4 flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm">
-                {diffResult.items.length} {t('sync.changes')}
+                {diffResult.items.length} {t("sync.changes")}
               </CardTitle>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={handleSelectAll}>
-                  {t('sync.selectAll')}
+                  {t("sync.selectAll")}
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleDeselectAll}>
-                  {t('sync.deselectAll')}
+                  {t("sync.deselectAll")}
                 </Button>
               </div>
             </CardHeader>
@@ -169,9 +166,7 @@ export function SyncPage({ connections }: SyncPageProps) {
                   onItemClick={setSelectedItem}
                 />
               ) : (
-                <p className="p-4 text-sm text-muted-foreground">
-                  {t('sync.noChanges')}
-                </p>
+                <p className="p-4 text-sm text-muted-foreground">{t("sync.noChanges")}</p>
               )}
             </CardContent>
           </Card>
@@ -181,12 +176,8 @@ export function SyncPage({ connections }: SyncPageProps) {
             <div className="flex-1 min-h-0">
               <SqlPreview sql={previewSql} />
             </div>
-            <Button
-              onClick={handleExecute}
-              disabled={!selectedSql || executing}
-              className="w-full"
-            >
-              {executing ? t('common.loading') : t('sync.execute')}
+            <Button onClick={handleExecute} disabled={!selectedSql || executing} className="w-full">
+              {executing ? t("common.loading") : t("sync.execute")}
             </Button>
           </div>
         </div>

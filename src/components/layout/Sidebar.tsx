@@ -1,15 +1,15 @@
-import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Plus, Database, ChevronDown, ChevronRight, Trash2, Edit } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Plus, Database, ChevronDown, ChevronRight, Trash2, Edit } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Connection } from '@/lib/api';
+} from "@/components/ui/dropdown-menu";
+import { Connection } from "@/lib/api";
 
 interface SidebarProps {
   connections?: Connection[];
@@ -38,7 +38,7 @@ export function Sidebar({
   return (
     <div className="w-64 border-r bg-muted/30 flex flex-col">
       <div className="p-4 border-b">
-        <h2 className="font-semibold text-sm">{t('connection.title')}</h2>
+        <h2 className="font-semibold text-sm">{t("connection.title")}</h2>
       </div>
 
       <ScrollArea className="flex-1">
@@ -47,7 +47,7 @@ export function Sidebar({
             <div key={conn.id} className="mb-1">
               <div
                 className={`flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-muted ${
-                  selectedId === conn.id ? 'bg-muted' : ''
+                  selectedId === conn.id ? "bg-muted" : ""
                 }`}
                 onClick={() => onSelectConnection?.(conn.id)}
               >
@@ -76,14 +76,14 @@ export function Sidebar({
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => onEditConnection?.(conn.id)}>
                       <Edit className="h-4 w-4 mr-2" />
-                      {t('connection.edit')}
+                      {t("connection.edit")}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => onDeleteConnection?.(conn.id)}
                       className="text-destructive"
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      {t('connection.delete')}
+                      {t("connection.delete")}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -103,7 +103,7 @@ export function Sidebar({
       <div className="p-4 border-t">
         <Button onClick={onNewConnection} className="w-full" size="sm">
           <Plus className="h-4 w-4 mr-2" />
-          {t('connection.new')}
+          {t("connection.new")}
         </Button>
       </div>
     </div>

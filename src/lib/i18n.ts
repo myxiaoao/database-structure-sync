@@ -1,9 +1,9 @@
-import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
-import enUS from '../locales/en-US.json';
-import zhCN from '../locales/zh-CN.json';
+import i18n from "i18next";
+import { initReactI18next } from "react-i18next";
+import enUS from "../locales/en-US.json";
+import zhCN from "../locales/zh-CN.json";
 
-const savedLang = localStorage.getItem('language') || 'en';
+const savedLang = localStorage.getItem("language") || "en";
 
 i18n.use(initReactI18next).init({
   resources: {
@@ -11,7 +11,7 @@ i18n.use(initReactI18next).init({
     zh: { translation: zhCN },
   },
   lng: savedLang,
-  fallbackLng: 'en',
+  fallbackLng: "en",
   interpolation: {
     escapeValue: false,
   },

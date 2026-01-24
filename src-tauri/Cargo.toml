@@ -1,11 +1,15 @@
 [package]
 name = "database-structure-sync"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Cross-platform database schema comparison and synchronization tool"
+authors = ["Cooper <myxiaoao@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/myxiaoao/database-structure-sync"
+homepage = "https://github.com/myxiaoao/database-structure-sync"
+keywords = ["database", "schema", "sync", "mysql", "postgresql"]
+categories = ["database", "development-tools"]
+edition = "2024"
+rust-version = "1.85"
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
@@ -40,9 +44,10 @@ shellexpand = "3"
 [profile.release]
 lto = true
 codegen-units = 1
-opt-level = "s"
+opt-level = "z"
 strip = true
 panic = "abort"
+incremental = false
 
 [profile.dev]
 opt-level = 0

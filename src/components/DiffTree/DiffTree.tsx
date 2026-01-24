@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ChevronDown,
   ChevronRight,
@@ -10,10 +10,10 @@ import {
   Key,
   Link,
   Fingerprint,
-} from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { DiffItem } from '@/lib/api';
+} from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { DiffItem } from "@/lib/api";
 
 interface DiffTreeProps {
   items: DiffItem[];
@@ -28,9 +28,9 @@ interface GroupedDiff {
 }
 
 function getDiffIcon(diffType: string): React.ReactNode {
-  if (diffType.includes('Added')) return <Plus className="h-4 w-4 text-green-500" />;
-  if (diffType.includes('Removed')) return <Minus className="h-4 w-4 text-red-500" />;
-  if (diffType.includes('Modified')) return <Edit className="h-4 w-4 text-yellow-500" />;
+  if (diffType.includes("Added")) return <Plus className="h-4 w-4 text-green-500" />;
+  if (diffType.includes("Removed")) return <Minus className="h-4 w-4 text-red-500" />;
+  if (diffType.includes("Modified")) return <Edit className="h-4 w-4 text-yellow-500" />;
   return <Table className="h-4 w-4" />;
 }
 
@@ -43,24 +43,24 @@ const typeIconMap: Record<string, React.ReactNode> = {
 };
 
 function getTypeIcon(diffType: string): React.ReactNode {
-  const prefix = diffType.replace(/(Added|Removed|Modified)$/, '');
+  const prefix = diffType.replace(/(Added|Removed|Modified)$/, "");
   return typeIconMap[prefix] || typeIconMap.Table;
 }
 
 function getDiffLabel(diffType: string, t: (key: string) => string): string {
   const labels: Record<string, string> = {
-    TableAdded: t('diff.tableAdded'),
-    TableRemoved: t('diff.tableRemoved'),
-    ColumnAdded: t('diff.columnAdded'),
-    ColumnRemoved: t('diff.columnRemoved'),
-    ColumnModified: t('diff.columnModified'),
-    IndexAdded: t('diff.indexAdded'),
-    IndexRemoved: t('diff.indexRemoved'),
-    IndexModified: t('diff.indexModified'),
-    ForeignKeyAdded: t('diff.foreignKeyAdded'),
-    ForeignKeyRemoved: t('diff.foreignKeyRemoved'),
-    UniqueConstraintAdded: t('diff.uniqueAdded'),
-    UniqueConstraintRemoved: t('diff.uniqueRemoved'),
+    TableAdded: t("diff.tableAdded"),
+    TableRemoved: t("diff.tableRemoved"),
+    ColumnAdded: t("diff.columnAdded"),
+    ColumnRemoved: t("diff.columnRemoved"),
+    ColumnModified: t("diff.columnModified"),
+    IndexAdded: t("diff.indexAdded"),
+    IndexRemoved: t("diff.indexRemoved"),
+    IndexModified: t("diff.indexModified"),
+    ForeignKeyAdded: t("diff.foreignKeyAdded"),
+    ForeignKeyRemoved: t("diff.foreignKeyRemoved"),
+    UniqueConstraintAdded: t("diff.uniqueAdded"),
+    UniqueConstraintRemoved: t("diff.uniqueRemoved"),
   };
   return labels[diffType] || diffType;
 }
@@ -93,12 +93,8 @@ function DiffItemRow({
       />
       {getDiffIcon(item.diff_type)}
       {getTypeIcon(item.diff_type)}
-      <span className="flex-1 text-sm truncate">
-        {item.object_name || item.table_name}
-      </span>
-      <span className="text-xs text-muted-foreground">
-        {getDiffLabel(item.diff_type, t)}
-      </span>
+      <span className="flex-1 text-sm truncate">{item.object_name || item.table_name}</span>
+      <span className="text-xs text-muted-foreground">{getDiffLabel(item.diff_type, t)}</span>
     </div>
   );
 }
@@ -119,8 +115,7 @@ function TableGroup({
   onToggleExpand: () => void;
 }) {
   const allSelected = group.items.every((item) => selectedItems.has(item.id));
-  const someSelected =
-    !allSelected && group.items.some((item) => selectedItems.has(item.id));
+  const someSelected = !allSelected && group.items.some((item) => selectedItems.has(item.id));
 
   const handleGroupToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -150,30 +145,22 @@ function TableGroup({
         onClick={onToggleExpand}
       >
         <button onClick={(e) => e.stopPropagation()} className="p-0.5">
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
+          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
         <Checkbox
           checked={allSelected}
           ref={(el) => {
             if (el) {
-              (el as HTMLButtonElement).dataset.indeterminate = someSelected
-                ? 'true'
-                : 'false';
+              (el as HTMLButtonElement).dataset.indeterminate = someSelected ? "true" : "false";
             }
           }}
           onCheckedChange={() => {}}
           onClick={handleGroupToggle}
         />
         <Table className="h-4 w-4 text-muted-foreground" />
-        <span className="flex-1 text-sm font-medium truncate">
-          {group.tableName}
-        </span>
+        <span className="flex-1 text-sm font-medium truncate">{group.tableName}</span>
         <span className="text-xs text-muted-foreground">
-          {group.items.length} change{group.items.length > 1 ? 's' : ''}
+          {group.items.length} change{group.items.length > 1 ? "s" : ""}
         </span>
       </div>
       {isExpanded && (
@@ -193,12 +180,7 @@ function TableGroup({
   );
 }
 
-export function DiffTree({
-  items,
-  selectedItems,
-  onSelectionChange,
-  onItemClick,
-}: DiffTreeProps) {
+export function DiffTree({ items, selectedItems, onSelectionChange, onItemClick }: DiffTreeProps) {
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
 
   // Group items by table name
