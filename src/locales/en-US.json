@@ -1,0 +1,79 @@
+{
+  "app": {
+    "title": "Database Structure Sync"
+  },
+  "connection": {
+    "title": "Connections",
+    "new": "New Connection",
+    "edit": "Edit",
+    "delete": "Delete",
+    "test": "Test Connection",
+    "save": "Save",
+    "cancel": "Cancel",
+    "name": "Connection Name",
+    "type": "Database Type",
+    "host": "Host",
+    "port": "Port",
+    "username": "Username",
+    "password": "Password",
+    "database": "Database",
+    "testSuccess": "Connection successful",
+    "testFailed": "Connection failed"
+  },
+  "ssh": {
+    "title": "SSH Tunnel",
+    "enabled": "Enable SSH Tunnel",
+    "host": "SSH Host",
+    "port": "SSH Port",
+    "username": "SSH Username",
+    "authMethod": "Authentication Method",
+    "password": "Password",
+    "privateKey": "Private Key",
+    "privateKeyPath": "Private Key Path",
+    "passphrase": "Passphrase"
+  },
+  "ssl": {
+    "title": "SSL/TLS",
+    "enabled": "Enable SSL/TLS",
+    "caCert": "CA Certificate",
+    "clientCert": "Client Certificate",
+    "clientKey": "Client Key",
+    "verifyServer": "Verify Server Certificate"
+  },
+  "sync": {
+    "source": "Source Database",
+    "target": "Target Database",
+    "selectConnection": "Select connection...",
+    "compare": "Start Compare",
+    "execute": "Execute Sync",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "noChanges": "No structural differences found",
+    "changes": "differences"
+  },
+  "diff": {
+    "tableAdded": "New Table",
+    "tableRemoved": "Drop Table",
+    "columnAdded": "Add Column",
+    "columnRemoved": "Drop Column",
+    "columnModified": "Modify Column",
+    "indexAdded": "Add Index",
+    "indexRemoved": "Drop Index",
+    "indexModified": "Modify Index",
+    "foreignKeyAdded": "Add Foreign Key",
+    "foreignKeyRemoved": "Drop Foreign Key",
+    "uniqueAdded": "Add Unique Constraint",
+    "uniqueRemoved": "Drop Unique Constraint"
+  },
+  "sql": {
+    "preview": "SQL Preview",
+    "empty": "Select items to preview SQL"
+  },
+  "common": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  }
+}

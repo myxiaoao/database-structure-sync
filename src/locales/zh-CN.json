@@ -1,0 +1,79 @@
+{
+  "app": {
+    "title": "数据库结构同步"
+  },
+  "connection": {
+    "title": "连接管理",
+    "new": "新建连接",
+    "edit": "编辑",
+    "delete": "删除",
+    "test": "测试连接",
+    "save": "保存",
+    "cancel": "取消",
+    "name": "连接名称",
+    "type": "数据库类型",
+    "host": "主机地址",
+    "port": "端口",
+    "username": "用户名",
+    "password": "密码",
+    "database": "数据库名",
+    "testSuccess": "连接成功",
+    "testFailed": "连接失败"
+  },
+  "ssh": {
+    "title": "SSH 隧道",
+    "enabled": "启用 SSH 隧道",
+    "host": "SSH 主机",
+    "port": "SSH 端口",
+    "username": "SSH 用户名",
+    "authMethod": "认证方式",
+    "password": "密码",
+    "privateKey": "私钥",
+    "privateKeyPath": "私钥路径",
+    "passphrase": "私钥密码"
+  },
+  "ssl": {
+    "title": "SSL/TLS",
+    "enabled": "启用 SSL/TLS",
+    "caCert": "CA 证书",
+    "clientCert": "客户端证书",
+    "clientKey": "客户端密钥",
+    "verifyServer": "验证服务器证书"
+  },
+  "sync": {
+    "source": "源数据库",
+    "target": "目标数据库",
+    "selectConnection": "选择连接...",
+    "compare": "开始比较",
+    "execute": "执行同步",
+    "selectAll": "全选",
+    "deselectAll": "全不选",
+    "noChanges": "未发现结构差异",
+    "changes": "项差异"
+  },
+  "diff": {
+    "tableAdded": "新建表",
+    "tableRemoved": "删除表",
+    "columnAdded": "新增列",
+    "columnRemoved": "删除列",
+    "columnModified": "修改列",
+    "indexAdded": "新增索引",
+    "indexRemoved": "删除索引",
+    "indexModified": "修改索引",
+    "foreignKeyAdded": "新增外键",
+    "foreignKeyRemoved": "删除外键",
+    "uniqueAdded": "新增唯一约束",
+    "uniqueRemoved": "删除唯一约束"
+  },
+  "sql": {
+    "preview": "SQL 预览",
+    "empty": "选择项目以预览 SQL"
+  },
+  "common": {
+    "confirm": "确认",
+    "cancel": "取消",
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功"
+  }
+}
