@@ -1,7 +1,174 @@
-# Tauri + React + Typescript
+# Database Structure Sync
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+A cross-platform desktop application for comparing and synchronizing database table structures between MySQL, PostgreSQL, and MariaDB databases.
 
-## Recommended IDE Setup
+## Features
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+- **Multi-Database Support**: MySQL, PostgreSQL, and MariaDB
+- **Visual Schema Comparison**: Side-by-side diff view of database structures
+- **Selective Sync**: Choose which changes to apply
+- **SQL Preview**: Review generated SQL before execution
+- **Secure Connections**:
+  - SSH tunnel support for secure remote connections
+  - SSL/TLS encryption support
+  - Passwords stored in system keychain
+- **Cross-Platform**: Windows, macOS, and Linux
+- **Internationalization**: English and Chinese language support
+- **Dark/Light Mode**: Automatic theme detection with manual override
+
+## Screenshots
+
+*Coming soon*
+
+## Installation
+
+### Pre-built Binaries
+
+Download the latest release for your platform from the [Releases](https://github.com/your-username/database-structure-synchronization/releases) page:
+
+- **macOS**: `.dmg` (Intel and Apple Silicon)
+- **Windows**: `.msi` or `.exe` installer
+- **Linux**: `.deb`, `.rpm`, or `.AppImage`
+
+### Build from Source
+
+#### Prerequisites
+
+- [Node.js](https://nodejs.org/) 20.x or later
+- [Rust](https://www.rust-lang.org/) 1.70 or later
+- Platform-specific dependencies:
+
+**macOS:**
+```bash
+xcode-select --install
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+```
+
+**Windows:**
+- Visual Studio Build Tools with C++ workload
+- WebView2 Runtime (usually pre-installed on Windows 10/11)
+
+#### Build Steps
+
+1. Clone the repository:
+```bash
+git clone https://github.com/your-username/database-structure-synchronization.git
+cd database-structure-synchronization
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Run in development mode:
+```bash
+npm run tauri dev
+```
+
+4. Build for production:
+```bash
+npm run tauri build
+```
+
+The built application will be in `src-tauri/target/release/bundle/`.
+
+## Usage
+
+### Adding a Connection
+
+1. Click "New Connection" in the sidebar
+2. Fill in the connection details:
+   - **Name**: A friendly name for the connection
+   - **Database Type**: MySQL, PostgreSQL, or MariaDB
+   - **Host/Port**: Database server address
+   - **Username/Password**: Database credentials
+   - **Database**: Target database name
+3. (Optional) Configure SSH tunnel or SSL settings
+4. Click "Test Connection" to verify
+5. Click "Save" to store the connection
+
+### Comparing Databases
+
+1. Select a **Source** database (the reference schema)
+2. Select a **Target** database (the one to be updated)
+3. Click "Start Compare"
+4. Review the differences in the diff tree
+5. Select the changes you want to apply
+6. Preview the SQL statements
+7. Click "Execute Sync" to apply changes
+
+## Architecture
+
+```
+├── src/                    # React frontend
+│   ├── components/         # UI components
+│   ├── hooks/              # React hooks
+│   ├── lib/                # Utilities and API
+│   └── locales/            # i18n translations
+├── src-tauri/              # Rust backend
+│   ├── src/
+│   │   ├── db/             # Database drivers
+│   │   ├── diff/           # Schema comparison
+│   │   ├── models/         # Data models
+│   │   ├── ssh/            # SSH tunnel
+│   │   └── storage/        # Config storage
+│   └── tests/              # Integration tests
+└── docs/                   # Documentation
+```
+
+## Tech Stack
+
+### Frontend
+- React 19 with TypeScript
+- Tailwind CSS 4
+- shadcn/ui components
+- react-i18next for internationalization
+
+### Backend
+- Rust with Tauri 2.x
+- SQLx for database connections
+- russh for SSH tunnels
+- System keychain for secure password storage
+
+## Development
+
+### Running Tests
+
+```bash
+# Rust tests
+cd src-tauri
+cargo test
+
+# Type checking
+npm run build
+```
+
+### Project Structure
+
+- `src/` - Frontend React application
+- `src-tauri/` - Rust backend and Tauri configuration
+- `docs/` - Design documents and plans
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- [Tauri](https://tauri.app/) - Cross-platform app framework
+- [shadcn/ui](https://ui.shadcn.com/) - UI components
+- [SQLx](https://github.com/launchbadge/sqlx) - Rust SQL toolkit

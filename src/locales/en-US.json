@@ -8,9 +8,13 @@
     "edit": "Edit",
     "delete": "Delete",
     "test": "Test Connection",
+    "testing": "Testing...",
     "save": "Save",
+    "saving": "Saving...",
     "cancel": "Cancel",
     "name": "Connection Name",
+    "namePlaceholder": "My Database",
+    "dbType": "Database Type",
     "type": "Database Type",
     "host": "Host",
     "port": "Port",
@@ -18,7 +22,25 @@
     "password": "Password",
     "database": "Database",
     "testSuccess": "Connection successful",
-    "testFailed": "Connection failed"
+    "testFailed": "Connection failed",
+    "basicTab": "Basic",
+    "sshTab": "SSH",
+    "sslTab": "SSL",
+    "sshEnabled": "Enable SSH Tunnel",
+    "sshHost": "SSH Host",
+    "sshPort": "SSH Port",
+    "sshUsername": "SSH Username",
+    "sshAuthMethod": "Authentication Method",
+    "sshPassword": "Password",
+    "sshPasswordField": "SSH Password",
+    "sshPrivateKey": "Private Key",
+    "sshPrivateKeyPath": "Private Key Path",
+    "sshPassphrase": "Passphrase",
+    "sslEnabled": "Enable SSL/TLS",
+    "sslCaCert": "CA Certificate Path",
+    "sslClientCert": "Client Certificate Path",
+    "sslClientKey": "Client Key Path",
+    "sslVerifyServerCert": "Verify Server Certificate"
   },
   "ssh": {
     "title": "SSH Tunnel",
@@ -74,6 +96,11 @@
     "cancel": "Cancel",
     "loading": "Loading...",
     "error": "Error",
-    "success": "Success"
+    "success": "Success",
+    "toggleTheme": "Toggle theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "language": "Language"
   }
 }

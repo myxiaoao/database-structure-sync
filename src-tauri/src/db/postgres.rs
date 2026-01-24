@@ -10,15 +10,45 @@ pub struct PostgresDriver {
 }
 
 impl PostgresDriver {
-    pub async fn new(host: &str, port: u16, user: &str, password: &str, database: &str) -> Result<Self> {
-        let url = format!(
-            "postgres://{}:{}@{}:{}/{}",
-            user, password, host, port, database
-        );
+    pub async fn new(
+        host: &str,
+        port: u16,
+        user: &str,
+        password: &str,
+        database: &str,
+    ) -> Result<Self> {
+        Self::new_with_ssl(host, port, user, password, database, None).await
+    }
+
+    pub async fn new_with_ssl(
+        host: &str,
+        port: u16,
+        user: &str,
+        password: &str,
+        database: &str,
+        ssl_config: Option<&SslConfig>,
+    ) -> Result<Self> {
+        let mut opts = sqlx::postgres::PgConnectOptions::new()
+            .host(host)
+            .port(port)
+            .username(user)
+            .password(password)
+            .database(database);
+
+        if let Some(ssl) = ssl_config {
+            if ssl.enabled {
+                opts = opts.ssl_mode(sqlx::postgres::PgSslMode::Require);
+                if let Some(ca_path) = &ssl.ca_cert_path {
+                    opts = opts.ssl_root_cert(ca_path);
+                }
+            }
+        }
+
         let pool = PgPoolOptions::new()
             .max_connections(5)
-            .connect(&url)
+            .connect_with(opts)
             .await?;
+
         Ok(Self { pool })
     }
 

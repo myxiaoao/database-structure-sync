@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -13,6 +14,16 @@ impl DbType {
         match self {
             DbType::MySQL | DbType::MariaDB => 3306,
             DbType::PostgreSQL => 5432,
+        }
+    }
+}
+
+impl fmt::Display for DbType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DbType::MySQL => write!(f, "MySQL"),
+            DbType::PostgreSQL => write!(f, "PostgreSQL"),
+            DbType::MariaDB => write!(f, "MariaDB"),
         }
     }
 }

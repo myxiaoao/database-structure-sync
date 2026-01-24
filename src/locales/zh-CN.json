@@ -8,9 +8,13 @@
     "edit": "编辑",
     "delete": "删除",
     "test": "测试连接",
+    "testing": "测试中...",
     "save": "保存",
+    "saving": "保存中...",
     "cancel": "取消",
     "name": "连接名称",
+    "namePlaceholder": "我的数据库",
+    "dbType": "数据库类型",
     "type": "数据库类型",
     "host": "主机地址",
     "port": "端口",
@@ -18,7 +22,25 @@
     "password": "密码",
     "database": "数据库名",
     "testSuccess": "连接成功",
-    "testFailed": "连接失败"
+    "testFailed": "连接失败",
+    "basicTab": "基础设置",
+    "sshTab": "SSH 隧道",
+    "sslTab": "SSL 加密",
+    "sshEnabled": "启用 SSH 隧道",
+    "sshHost": "SSH 主机",
+    "sshPort": "SSH 端口",
+    "sshUsername": "SSH 用户名",
+    "sshAuthMethod": "认证方式",
+    "sshPassword": "密码认证",
+    "sshPasswordField": "SSH 密码",
+    "sshPrivateKey": "私钥认证",
+    "sshPrivateKeyPath": "私钥路径",
+    "sshPassphrase": "私钥密码",
+    "sslEnabled": "启用 SSL/TLS",
+    "sslCaCert": "CA 证书路径",
+    "sslClientCert": "客户端证书路径",
+    "sslClientKey": "客户端密钥路径",
+    "sslVerifyServerCert": "验证服务器证书"
   },
   "ssh": {
     "title": "SSH 隧道",
@@ -74,6 +96,11 @@
     "cancel": "取消",
     "loading": "加载中...",
     "error": "错误",
-    "success": "成功"
+    "success": "成功",
+    "toggleTheme": "切换主题",
+    "light": "浅色",
+    "dark": "深色",
+    "system": "跟随系统",
+    "language": "语言"
   }
 }

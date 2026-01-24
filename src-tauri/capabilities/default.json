@@ -5,6 +5,15 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default"
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-set-size",
+    "core:window:allow-set-position",
+    "core:app:allow-version",
+    "core:app:allow-name",
+    "opener:default",
+    "log:default",
+    "updater:default"
   ]
 }

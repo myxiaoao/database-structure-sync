@@ -10,15 +10,51 @@ pub struct MySqlDriver {
 }
 
 impl MySqlDriver {
-    pub async fn new(host: &str, port: u16, user: &str, password: &str, database: &str) -> Result<Self> {
-        let url = format!(
-            "mysql://{}:{}@{}:{}/{}",
-            user, password, host, port, database
-        );
+    pub async fn new(
+        host: &str,
+        port: u16,
+        user: &str,
+        password: &str,
+        database: &str,
+    ) -> Result<Self> {
+        Self::new_with_ssl(host, port, user, password, database, None).await
+    }
+
+    pub async fn new_with_ssl(
+        host: &str,
+        port: u16,
+        user: &str,
+        password: &str,
+        database: &str,
+        ssl_config: Option<&SslConfig>,
+    ) -> Result<Self> {
+        let mut opts = sqlx::mysql::MySqlConnectOptions::new()
+            .host(host)
+            .port(port)
+            .username(user)
+            .password(password)
+            .database(database);
+
+        if let Some(ssl) = ssl_config {
+            if ssl.enabled {
+                opts = opts.ssl_mode(sqlx::mysql::MySqlSslMode::Required);
+                if let Some(ca_path) = &ssl.ca_cert_path {
+                    opts = opts.ssl_ca(ca_path);
+                }
+                if let Some(cert_path) = &ssl.client_cert_path {
+                    opts = opts.ssl_client_cert(cert_path);
+                }
+                if let Some(key_path) = &ssl.client_key_path {
+                    opts = opts.ssl_client_key(key_path);
+                }
+            }
+        }
+
         let pool = MySqlPoolOptions::new()
             .max_connections(5)
-            .connect(&url)
+            .connect_with(opts)
             .await?;
+
         Ok(Self { pool })
     }
 

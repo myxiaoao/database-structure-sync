@@ -9,14 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-interface Connection {
-  id: string;
-  name: string;
-  db_type: string;
-  host: string;
-  database: string;
-}
+import { Connection } from '@/lib/api';
 
 interface SidebarProps {
   connections?: Connection[];
