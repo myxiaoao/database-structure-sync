@@ -2679,22 +2679,1694 @@ git commit -m "feat: add base layout with sidebar component"
 
 ---
 
-The implementation plan continues with additional frontend tasks (connection form, diff tree, SQL preview) and integration. Due to the size, I've provided the core structure that covers:
+### Task 7.2: Connection Form Dialog
 
-- Phase 1: Project Setup (Tasks 1.1-1.4)
-- Phase 2: Data Models (Task 2.1)
-- Phase 3: Storage Layer (Task 3.1)
-- Phase 4: Database Drivers (Tasks 4.1-4.3)
-- Phase 5: Diff Engine (Task 5.1)
-- Phase 6: Tauri Commands (Task 6.1)
-- Phase 7: Frontend Implementation (Task 7.1 - partial)
+**Files:**
+- Create: `src/components/ConnectionForm/ConnectionForm.tsx`
+- Create: `src/components/ConnectionForm/index.ts`
+- Create: `src/hooks/useConnections.ts`
+- Create: `src/lib/api.ts`
 
-Remaining tasks to add:
-- Task 7.2: Connection Form Dialog
-- Task 7.3: Sync Page with Database Selectors
-- Task 7.4: Diff Tree Component
-- Task 7.5: SQL Preview Component
-- Task 8.1: SSH Tunnel Implementation
-- Task 8.2: SSL/TLS Support
-- Task 9.1: Integration Testing
-- Task 9.2: Build and Package
+**Step 1: Create API helper**
+
+Create `src/lib/api.ts`:
+
+```typescript
+import { invoke } from '@tauri-apps/api/core';
+
+export interface Connection {
+  id: string;
+  name: string;
+  db_type: 'mysql' | 'postgresql' | 'mariadb';
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  database: string;
+  ssh_config?: SshConfig;
+  ssl_config?: SslConfig;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SshConfig {
+  enabled: boolean;
+  host: string;
+  port: number;
+  username: string;
+  auth_method: SshAuthMethod;
+}
+
+export type SshAuthMethod =
+  | { password: { password: string } }
+  | { privatekey: { private_key_path: string; passphrase?: string } };
+
+export interface SslConfig {
+  enabled: boolean;
+  ca_cert_path?: string;
+  client_cert_path?: string;
+  client_key_path?: string;
+  verify_server: boolean;
+}
+
+export interface ConnectionInput {
+  name: string;
+  db_type: 'mysql' | 'postgresql' | 'mariadb';
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  database: string;
+  ssh_config?: SshConfig;
+  ssl_config?: SslConfig;
+}
+
+export interface DiffItem {
+  id: string;
+  diff_type: string;
+  table_name: string;
+  object_name?: string;
+  source_def?: string;
+  target_def?: string;
+  sql: string;
+  selected: boolean;
+}
+
+export interface DiffResult {
+  items: DiffItem[];
+  source_tables: number;
+  target_tables: number;
+}
+
+export const api = {
+  listConnections: () => invoke<Connection[]>('list_connections'),
+  getConnection: (id: string) => invoke<Connection | null>('get_connection', { id }),
+  saveConnection: (input: ConnectionInput) => invoke<Connection>('save_connection', { input }),
+  deleteConnection: (id: string) => invoke<void>('delete_connection', { id }),
+  testConnection: (input: ConnectionInput) => invoke<void>('test_connection', { input }),
+  compareDatabases: (sourceId: string, targetId: string) =>
+    invoke<DiffResult>('compare_databases', { sourceId, targetId }),
+  executeSync: (targetId: string, sqlStatements: string[]) =>
+    invoke<void>('execute_sync', { targetId, sqlStatements }),
+};
+```
+
+**Step 2: Create useConnections hook**
+
+Create `src/hooks/useConnections.ts`:
+
+```typescript
+import { useState, useEffect, useCallback } from 'react';
+import { api, Connection, ConnectionInput } from '@/lib/api';
+
+export function useConnections() {
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      setLoading(true);
+      const list = await api.listConnections();
+      setConnections(list);
+      setError(null);
+    } catch (e) {
+      setError(e as string);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const saveConnection = async (input: ConnectionInput) => {
+    const conn = await api.saveConnection(input);
+    await refresh();
+    return conn;
+  };
+
+  const deleteConnection = async (id: string) => {
+    await api.deleteConnection(id);
+    await refresh();
+  };
+
+  const testConnection = async (input: ConnectionInput) => {
+    await api.testConnection(input);
+  };
+
+  return {
+    connections,
+    loading,
+    error,
+    refresh,
+    saveConnection,
+    deleteConnection,
+    testConnection,
+  };
+}
+```
+
+**Step 3: Create ConnectionForm component**
+
+Create `src/components/ConnectionForm/ConnectionForm.tsx`:
+
+```tsx
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ConnectionInput, SshAuthMethod } from '@/lib/api';
+
+interface ConnectionFormProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (input: ConnectionInput) => Promise<void>;
+  onTest: (input: ConnectionInput) => Promise<void>;
+  initialData?: Partial<ConnectionInput>;
+}
+
+const DEFAULT_PORTS: Record<string, number> = {
+  mysql: 3306,
+  postgresql: 5432,
+  mariadb: 3306,
+};
+
+export function ConnectionForm({
+  open,
+  onOpenChange,
+  onSave,
+  onTest,
+  initialData,
+}: ConnectionFormProps) {
+  const { t } = useTranslation();
+  const [loading, setLoading] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const [formData, setFormData] = useState<ConnectionInput>({
+    name: initialData?.name || '',
+    db_type: initialData?.db_type || 'mysql',
+    host: initialData?.host || 'localhost',
+    port: initialData?.port || 3306,
+    username: initialData?.username || '',
+    password: initialData?.password || '',
+    database: initialData?.database || '',
+    ssh_config: initialData?.ssh_config,
+    ssl_config: initialData?.ssl_config,
+  });
+
+  const [sshEnabled, setSshEnabled] = useState(initialData?.ssh_config?.enabled || false);
+  const [sshAuthMethod, setSshAuthMethod] = useState<'password' | 'privatekey'>('password');
+  const [sshData, setSshData] = useState({
+    host: initialData?.ssh_config?.host || '',
+    port: initialData?.ssh_config?.port || 22,
+    username: initialData?.ssh_config?.username || '',
+    password: '',
+    privateKeyPath: '',
+    passphrase: '',
+  });
+
+  const [sslEnabled, setSslEnabled] = useState(initialData?.ssl_config?.enabled || false);
+  const [sslData, setSslData] = useState({
+    caCertPath: initialData?.ssl_config?.ca_cert_path || '',
+    clientCertPath: initialData?.ssl_config?.client_cert_path || '',
+    clientKeyPath: initialData?.ssl_config?.client_key_path || '',
+    verifyServer: initialData?.ssl_config?.verify_server ?? true,
+  });
+
+  const updateField = <K extends keyof ConnectionInput>(key: K, value: ConnectionInput[K]) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+    if (key === 'db_type') {
+      setFormData((prev) => ({ ...prev, port: DEFAULT_PORTS[value as string] || 3306 }));
+    }
+  };
+
+  const buildInput = (): ConnectionInput => {
+    const input: ConnectionInput = { ...formData };
+
+    if (sshEnabled) {
+      const authMethod: SshAuthMethod =
+        sshAuthMethod === 'password'
+          ? { password: { password: sshData.password } }
+          : {
+              privatekey: {
+                private_key_path: sshData.privateKeyPath,
+                passphrase: sshData.passphrase || undefined,
+              },
+            };
+
+      input.ssh_config = {
+        enabled: true,
+        host: sshData.host,
+        port: sshData.port,
+        username: sshData.username,
+        auth_method: authMethod,
+      };
+    }
+
+    if (sslEnabled) {
+      input.ssl_config = {
+        enabled: true,
+        ca_cert_path: sslData.caCertPath || undefined,
+        client_cert_path: sslData.clientCertPath || undefined,
+        client_key_path: sslData.clientKeyPath || undefined,
+        verify_server: sslData.verifyServer,
+      };
+    }
+
+    return input;
+  };
+
+  const handleTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      await onTest(buildInput());
+      setTestResult({ success: true, message: t('connection.testSuccess') });
+    } catch (e) {
+      setTestResult({ success: false, message: String(e) });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      await onSave(buildInput());
+      onOpenChange(false);
+    } catch (e) {
+      setTestResult({ success: false, message: String(e) });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t('connection.new')}</DialogTitle>
+        </DialogHeader>
+
+        <Tabs defaultValue="basic" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="basic">Basic</TabsTrigger>
+            <TabsTrigger value="ssh">{t('ssh.title')}</TabsTrigger>
+            <TabsTrigger value="ssl">{t('ssl.title')}</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="basic" className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('connection.name')}</Label>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => updateField('name', e.target.value)}
+                  placeholder="My Database"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('connection.type')}</Label>
+                <Select
+                  value={formData.db_type}
+                  onValueChange={(v) => updateField('db_type', v as ConnectionInput['db_type'])}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mysql">MySQL</SelectItem>
+                    <SelectItem value="postgresql">PostgreSQL</SelectItem>
+                    <SelectItem value="mariadb">MariaDB</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-2 space-y-2">
+                <Label>{t('connection.host')}</Label>
+                <Input
+                  value={formData.host}
+                  onChange={(e) => updateField('host', e.target.value)}
+                  placeholder="localhost"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('connection.port')}</Label>
+                <Input
+                  type="number"
+                  value={formData.port}
+                  onChange={(e) => updateField('port', parseInt(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('connection.username')}</Label>
+                <Input
+                  value={formData.username}
+                  onChange={(e) => updateField('username', e.target.value)}
+                  placeholder="root"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('connection.password')}</Label>
+                <Input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => updateField('password', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t('connection.database')}</Label>
+              <Input
+                value={formData.database}
+                onChange={(e) => updateField('database', e.target.value)}
+                placeholder="mydb"
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="ssh" className="space-y-4 mt-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="ssh-enabled"
+                checked={sshEnabled}
+                onCheckedChange={(checked) => setSshEnabled(!!checked)}
+              />
+              <Label htmlFor="ssh-enabled">{t('ssh.enabled')}</Label>
+            </div>
+
+            {sshEnabled && (
+              <>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2 space-y-2">
+                    <Label>{t('ssh.host')}</Label>
+                    <Input
+                      value={sshData.host}
+                      onChange={(e) => setSshData((p) => ({ ...p, host: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t('ssh.port')}</Label>
+                    <Input
+                      type="number"
+                      value={sshData.port}
+                      onChange={(e) => setSshData((p) => ({ ...p, port: parseInt(e.target.value) || 22 }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{t('ssh.username')}</Label>
+                  <Input
+                    value={sshData.username}
+                    onChange={(e) => setSshData((p) => ({ ...p, username: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{t('ssh.authMethod')}</Label>
+                  <Select value={sshAuthMethod} onValueChange={(v) => setSshAuthMethod(v as 'password' | 'privatekey')}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="password">{t('ssh.password')}</SelectItem>
+                      <SelectItem value="privatekey">{t('ssh.privateKey')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {sshAuthMethod === 'password' ? (
+                  <div className="space-y-2">
+                    <Label>{t('ssh.password')}</Label>
+                    <Input
+                      type="password"
+                      value={sshData.password}
+                      onChange={(e) => setSshData((p) => ({ ...p, password: e.target.value }))}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label>{t('ssh.privateKeyPath')}</Label>
+                      <Input
+                        value={sshData.privateKeyPath}
+                        onChange={(e) => setSshData((p) => ({ ...p, privateKeyPath: e.target.value }))}
+                        placeholder="~/.ssh/id_rsa"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('ssh.passphrase')}</Label>
+                      <Input
+                        type="password"
+                        value={sshData.passphrase}
+                        onChange={(e) => setSshData((p) => ({ ...p, passphrase: e.target.value }))}
+                      />
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="ssl" className="space-y-4 mt-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="ssl-enabled"
+                checked={sslEnabled}
+                onCheckedChange={(checked) => setSslEnabled(!!checked)}
+              />
+              <Label htmlFor="ssl-enabled">{t('ssl.enabled')}</Label>
+            </div>
+
+            {sslEnabled && (
+              <>
+                <div className="space-y-2">
+                  <Label>{t('ssl.caCert')}</Label>
+                  <Input
+                    value={sslData.caCertPath}
+                    onChange={(e) => setSslData((p) => ({ ...p, caCertPath: e.target.value }))}
+                    placeholder="/path/to/ca.pem"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('ssl.clientCert')}</Label>
+                  <Input
+                    value={sslData.clientCertPath}
+                    onChange={(e) => setSslData((p) => ({ ...p, clientCertPath: e.target.value }))}
+                    placeholder="/path/to/client-cert.pem"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('ssl.clientKey')}</Label>
+                  <Input
+                    value={sslData.clientKeyPath}
+                    onChange={(e) => setSslData((p) => ({ ...p, clientKeyPath: e.target.value }))}
+                    placeholder="/path/to/client-key.pem"
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="ssl-verify"
+                    checked={sslData.verifyServer}
+                    onCheckedChange={(checked) => setSslData((p) => ({ ...p, verifyServer: !!checked }))}
+                  />
+                  <Label htmlFor="ssl-verify">{t('ssl.verifyServer')}</Label>
+                </div>
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        {testResult && (
+          <div
+            className={`p-3 rounded-md text-sm ${
+              testResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}
+          >
+            {testResult.message}
+          </div>
+        )}
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={handleTest} disabled={testing || loading}>
+            {testing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {t('connection.test')}
+          </Button>
+          <Button onClick={handleSave} disabled={loading || testing}>
+            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {t('connection.save')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+**Step 4: Create index export**
+
+Create `src/components/ConnectionForm/index.ts`:
+
+```typescript
+export { ConnectionForm } from './ConnectionForm';
+```
+
+**Step 5: Run to verify**
+
+Run:
+```bash
+npm run tauri dev
+```
+
+Expected: App compiles without errors
+
+**Step 6: Commit**
+
+```bash
+git add src/
+git commit -m "feat: add connection form dialog with ssh and ssl support"
+```
+
+---
+
+### Task 7.3: Sync Page with Database Selectors
+
+**Files:**
+- Create: `src/components/SyncPage/SyncPage.tsx`
+- Create: `src/components/SyncPage/index.ts`
+- Modify: `src/App.tsx`
+
+**Step 1: Create SyncPage component**
+
+Create `src/components/SyncPage/SyncPage.tsx`:
+
+```tsx
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ArrowRight, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Connection, DiffResult, api } from '@/lib/api';
+import { DiffTree } from '@/components/DiffTree';
+import { SqlPreview } from '@/components/SqlPreview';
+
+interface SyncPageProps {
+  connections: Connection[];
+}
+
+export function SyncPage({ connections }: SyncPageProps) {
+  const { t } = useTranslation();
+  const [sourceId, setSourceId] = useState<string>('');
+  const [targetId, setTargetId] = useState<string>('');
+  const [comparing, setComparing] = useState(false);
+  const [executing, setExecuting] = useState(false);
+  const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+
+  const handleCompare = async () => {
+    if (!sourceId || !targetId) return;
+    setComparing(true);
+    setError(null);
+    try {
+      const result = await api.compareDatabases(sourceId, targetId);
+      setDiffResult(result);
+      setSelectedIds(new Set(result.items.map((item) => item.id)));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setComparing(false);
+    }
+  };
+
+  const handleToggleItem = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (diffResult) {
+      setSelectedIds(new Set(diffResult.items.map((item) => item.id)));
+    }
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleExecute = async () => {
+    if (!diffResult || !targetId) return;
+    setExecuting(true);
+    setError(null);
+    try {
+      const sqlStatements = diffResult.items
+        .filter((item) => selectedIds.has(item.id))
+        .map((item) => item.sql);
+      await api.executeSync(targetId, sqlStatements);
+      setDiffResult(null);
+      setSelectedIds(new Set());
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  const selectedSql = diffResult?.items
+    .filter((item) => selectedIds.has(item.id))
+    .map((item) => item.sql)
+    .join('\n\n') || '';
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Database Selection</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <div className="flex-1">
+              <label className="text-sm text-muted-foreground mb-2 block">
+                {t('sync.source')}
+              </label>
+              <Select value={sourceId} onValueChange={setSourceId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('sync.selectConnection')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {connections.map((conn) => (
+                    <SelectItem key={conn.id} value={conn.id}>
+                      {conn.name} ({conn.db_type})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <ArrowRight className="h-5 w-5 text-muted-foreground mt-6" />
+
+            <div className="flex-1">
+              <label className="text-sm text-muted-foreground mb-2 block">
+                {t('sync.target')}
+              </label>
+              <Select value={targetId} onValueChange={setTargetId}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('sync.selectConnection')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {connections.map((conn) => (
+                    <SelectItem key={conn.id} value={conn.id}>
+                      {conn.name} ({conn.db_type})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              onClick={handleCompare}
+              disabled={!sourceId || !targetId || comparing}
+              className="mt-6"
+            >
+              {comparing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {t('sync.compare')}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {error && (
+        <div className="p-4 bg-red-100 text-red-800 rounded-md text-sm">{error}</div>
+      )}
+
+      {diffResult && (
+        <>
+          <div className="grid grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">
+                    {diffResult.items.length} {t('sync.changes')}
+                  </CardTitle>
+                  <div className="space-x-2">
+                    <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                      {t('sync.selectAll')}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleDeselectAll}>
+                      {t('sync.deselectAll')}
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <DiffTree
+                  items={diffResult.items}
+                  selectedIds={selectedIds}
+                  onToggle={handleToggleItem}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">{t('sql.preview')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SqlPreview sql={selectedSql} />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={handleExecute}
+              disabled={selectedIds.size === 0 || executing}
+              size="lg"
+            >
+              {executing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {t('sync.execute')}
+            </Button>
+          </div>
+        </>
+      )}
+
+      {diffResult && diffResult.items.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground">
+          {t('sync.noChanges')}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+**Step 2: Create index export**
+
+Create `src/components/SyncPage/index.ts`:
+
+```typescript
+export { SyncPage } from './SyncPage';
+```
+
+**Step 3: Commit**
+
+```bash
+git add src/components/SyncPage/
+git commit -m "feat: add sync page with database selectors"
+```
+
+---
+
+### Task 7.4: Diff Tree Component
+
+**Files:**
+- Create: `src/components/DiffTree/DiffTree.tsx`
+- Create: `src/components/DiffTree/index.ts`
+
+**Step 1: Create DiffTree component**
+
+Create `src/components/DiffTree/DiffTree.tsx`:
+
+```tsx
+import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ChevronDown, ChevronRight, Table, Plus, Minus, Edit, Key, Link } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { DiffItem } from '@/lib/api';
+
+interface DiffTreeProps {
+  items: DiffItem[];
+  selectedIds: Set<string>;
+  onToggle: (id: string) => void;
+}
+
+interface TreeNode {
+  tableName: string;
+  items: DiffItem[];
+}
+
+const DIFF_TYPE_ICONS: Record<string, React.ReactNode> = {
+  table_added: <Plus className="h-4 w-4 text-green-600" />,
+  table_removed: <Minus className="h-4 w-4 text-red-600" />,
+  column_added: <Plus className="h-4 w-4 text-green-600" />,
+  column_removed: <Minus className="h-4 w-4 text-red-600" />,
+  column_modified: <Edit className="h-4 w-4 text-yellow-600" />,
+  index_added: <Plus className="h-4 w-4 text-green-600" />,
+  index_removed: <Minus className="h-4 w-4 text-red-600" />,
+  index_modified: <Edit className="h-4 w-4 text-yellow-600" />,
+  foreign_key_added: <Link className="h-4 w-4 text-green-600" />,
+  foreign_key_removed: <Link className="h-4 w-4 text-red-600" />,
+  unique_constraint_added: <Key className="h-4 w-4 text-green-600" />,
+  unique_constraint_removed: <Key className="h-4 w-4 text-red-600" />,
+};
+
+const DIFF_TYPE_LABELS: Record<string, string> = {
+  table_added: 'diff.tableAdded',
+  table_removed: 'diff.tableRemoved',
+  column_added: 'diff.columnAdded',
+  column_removed: 'diff.columnRemoved',
+  column_modified: 'diff.columnModified',
+  index_added: 'diff.indexAdded',
+  index_removed: 'diff.indexRemoved',
+  index_modified: 'diff.indexModified',
+  foreign_key_added: 'diff.foreignKeyAdded',
+  foreign_key_removed: 'diff.foreignKeyRemoved',
+  unique_constraint_added: 'diff.uniqueAdded',
+  unique_constraint_removed: 'diff.uniqueRemoved',
+};
+
+export function DiffTree({ items, selectedIds, onToggle }: DiffTreeProps) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const treeNodes = useMemo(() => {
+    const nodeMap = new Map<string, TreeNode>();
+    for (const item of items) {
+      const existing = nodeMap.get(item.table_name);
+      if (existing) {
+        existing.items.push(item);
+      } else {
+        nodeMap.set(item.table_name, { tableName: item.table_name, items: [item] });
+      }
+    }
+    return Array.from(nodeMap.values()).sort((a, b) => a.tableName.localeCompare(b.tableName));
+  }, [items]);
+
+  const toggleExpand = (tableName: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(tableName)) {
+        next.delete(tableName);
+      } else {
+        next.add(tableName);
+      }
+      return next;
+    });
+  };
+
+  const isTableSelected = (node: TreeNode) => {
+    return node.items.every((item) => selectedIds.has(item.id));
+  };
+
+  const isTablePartiallySelected = (node: TreeNode) => {
+    const selected = node.items.filter((item) => selectedIds.has(item.id)).length;
+    return selected > 0 && selected < node.items.length;
+  };
+
+  const toggleTable = (node: TreeNode) => {
+    const allSelected = isTableSelected(node);
+    for (const item of node.items) {
+      if (allSelected && selectedIds.has(item.id)) {
+        onToggle(item.id);
+      } else if (!allSelected && !selectedIds.has(item.id)) {
+        onToggle(item.id);
+      }
+    }
+  };
+
+  return (
+    <ScrollArea className="h-[400px]">
+      <div className="space-y-1">
+        {treeNodes.map((node) => (
+          <div key={node.tableName}>
+            <div
+              className="flex items-center gap-2 p-2 rounded-md hover:bg-muted cursor-pointer"
+              onClick={() => toggleExpand(node.tableName)}
+            >
+              {expanded.has(node.tableName) ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+              <Checkbox
+                checked={isTableSelected(node)}
+                ref={(el) => {
+                  if (el) {
+                    (el as HTMLButtonElement).dataset.state = isTablePartiallySelected(node)
+                      ? 'indeterminate'
+                      : isTableSelected(node)
+                      ? 'checked'
+                      : 'unchecked';
+                  }
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleTable(node);
+                }}
+              />
+              <Table className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">{node.tableName}</span>
+              <span className="text-muted-foreground text-sm">
+                ({node.items.length} {node.items.length === 1 ? 'change' : 'changes'})
+              </span>
+            </div>
+
+            {expanded.has(node.tableName) && (
+              <div className="ml-8 space-y-1">
+                {node.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-2 p-2 rounded-md hover:bg-muted cursor-pointer"
+                    onClick={() => onToggle(item.id)}
+                  >
+                    <Checkbox
+                      checked={selectedIds.has(item.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      onCheckedChange={() => onToggle(item.id)}
+                    />
+                    {DIFF_TYPE_ICONS[item.diff_type] || <Edit className="h-4 w-4" />}
+                    <span className="text-sm">
+                      {t(DIFF_TYPE_LABELS[item.diff_type] || item.diff_type)}
+                      {item.object_name && `: ${item.object_name}`}
+                    </span>
+                    {item.source_def && (
+                      <span className="text-xs text-muted-foreground">({item.source_def})</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </ScrollArea>
+  );
+}
+```
+
+**Step 2: Create index export**
+
+Create `src/components/DiffTree/index.ts`:
+
+```typescript
+export { DiffTree } from './DiffTree';
+```
+
+**Step 3: Commit**
+
+```bash
+git add src/components/DiffTree/
+git commit -m "feat: add diff tree component with table grouping"
+```
+
+---
+
+### Task 7.5: SQL Preview Component
+
+**Files:**
+- Create: `src/components/SqlPreview/SqlPreview.tsx`
+- Create: `src/components/SqlPreview/index.ts`
+
+**Step 1: Create SqlPreview component**
+
+Create `src/components/SqlPreview/SqlPreview.tsx`:
+
+```tsx
+import { useTranslation } from 'react-i18next';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+interface SqlPreviewProps {
+  sql: string;
+}
+
+export function SqlPreview({ sql }: SqlPreviewProps) {
+  const { t } = useTranslation();
+
+  if (!sql) {
+    return (
+      <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+        {t('sql.empty')}
+      </div>
+    );
+  }
+
+  return (
+    <ScrollArea className="h-[400px]">
+      <pre className="p-4 bg-muted rounded-md text-sm font-mono whitespace-pre-wrap">
+        {sql}
+      </pre>
+    </ScrollArea>
+  );
+}
+```
+
+**Step 2: Create index export**
+
+Create `src/components/SqlPreview/index.ts`:
+
+```typescript
+export { SqlPreview } from './SqlPreview';
+```
+
+**Step 3: Commit**
+
+```bash
+git add src/components/SqlPreview/
+git commit -m "feat: add sql preview component"
+```
+
+---
+
+### Task 7.6: Integrate All Components in App
+
+**Files:**
+- Modify: `src/App.tsx`
+
+**Step 1: Update App.tsx with full integration**
+
+Replace `src/App.tsx`:
+
+```tsx
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Sidebar } from './components/layout/Sidebar';
+import { ConnectionForm } from './components/ConnectionForm';
+import { SyncPage } from './components/SyncPage';
+import { useConnections } from './hooks/useConnections';
+
+function App() {
+  const { t } = useTranslation();
+  const { connections, saveConnection, deleteConnection, testConnection, loading } = useConnections();
+  const [showConnectionForm, setShowConnectionForm] = useState(false);
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | undefined>();
+
+  const handleNewConnection = () => {
+    setShowConnectionForm(true);
+  };
+
+  const handleEditConnection = (id: string) => {
+    setShowConnectionForm(true);
+  };
+
+  const handleDeleteConnection = async (id: string) => {
+    if (confirm(t('common.confirm') + '?')) {
+      await deleteConnection(id);
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-background">
+      <Sidebar
+        connections={connections}
+        selectedId={selectedConnectionId}
+        onNewConnection={handleNewConnection}
+        onEditConnection={handleEditConnection}
+        onDeleteConnection={handleDeleteConnection}
+        onSelectConnection={setSelectedConnectionId}
+      />
+      <main className="flex-1 overflow-auto p-6">
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-muted-foreground">{t('common.loading')}</div>
+          </div>
+        ) : connections.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full">
+            <h1 className="text-2xl font-bold">{t('app.title')}</h1>
+            <p className="text-muted-foreground mt-2">
+              Create a connection to get started
+            </p>
+          </div>
+        ) : (
+          <SyncPage connections={connections} />
+        )}
+      </main>
+
+      <ConnectionForm
+        open={showConnectionForm}
+        onOpenChange={setShowConnectionForm}
+        onSave={saveConnection}
+        onTest={testConnection}
+      />
+    </div>
+  );
+}
+
+export default App;
+```
+
+**Step 2: Run to verify**
+
+Run:
+```bash
+npm run tauri dev
+```
+
+Expected: Full app with sidebar, connection form, and sync page working
+
+**Step 3: Commit**
+
+```bash
+git add src/
+git commit -m "feat: integrate all frontend components"
+```
+
+---
+
+## Phase 8: SSH and SSL Implementation
+
+### Task 8.1: Implement SSH Tunnel
+
+**Files:**
+- Create: `src-tauri/src/ssh/mod.rs`
+- Create: `src-tauri/src/ssh/tunnel.rs`
+- Modify: `src-tauri/src/lib.rs`
+- Modify: `src-tauri/src/commands/connection.rs`
+- Modify: `src-tauri/Cargo.toml`
+
+**Step 1: Create SSH module directory**
+
+Run:
+```bash
+mkdir -p src-tauri/src/ssh
+```
+
+**Step 2: Add shellexpand dependency**
+
+Add to `src-tauri/Cargo.toml` dependencies:
+
+```toml
+shellexpand = "3"
+```
+
+**Step 3: Create SSH tunnel implementation**
+
+Create `src-tauri/src/ssh/tunnel.rs`:
+
+```rust
+use anyhow::{anyhow, Result};
+use russh::client;
+use russh_keys::key::PublicKey;
+use std::sync::Arc;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpListener;
+
+use crate::models::{SshAuthMethod, SshConfig};
+
+struct Client;
+
+#[async_trait::async_trait]
+impl client::Handler for Client {
+    type Error = anyhow::Error;
+
+    async fn check_server_key(
+        &mut self,
+        _server_public_key: &PublicKey,
+    ) -> Result<bool, Self::Error> {
+        Ok(true)
+    }
+}
+
+pub struct SshTunnel {
+    local_port: u16,
+    _handle: tokio::task::JoinHandle<()>,
+}
+
+impl SshTunnel {
+    pub async fn new(
+        ssh_config: &SshConfig,
+        remote_host: &str,
+        remote_port: u16,
+    ) -> Result<Self> {
+        let config = Arc::new(client::Config::default());
+        let sh = Client;
+
+        let addr = format!("{}:{}", ssh_config.host, ssh_config.port);
+        let mut session = client::connect(config, addr, sh).await?;
+
+        let authenticated = match &ssh_config.auth_method {
+            SshAuthMethod::Password { password } => {
+                session
+                    .authenticate_password(&ssh_config.username, password)
+                    .await?
+            }
+            SshAuthMethod::PrivateKey {
+                private_key_path,
+                passphrase,
+            } => {
+                let key_path = shellexpand::tilde(private_key_path).to_string();
+                let key_pair = russh_keys::load_secret_key(&key_path, passphrase.as_deref())?;
+                session
+                    .authenticate_publickey(&ssh_config.username, Arc::new(key_pair))
+                    .await?
+            }
+        };
+
+        if !authenticated {
+            return Err(anyhow!("SSH authentication failed"));
+        }
+
+        let listener = TcpListener::bind("127.0.0.1:0").await?;
+        let local_port = listener.local_addr()?.port();
+
+        let remote_host = remote_host.to_string();
+        let handle = tokio::spawn(async move {
+            loop {
+                if let Ok((mut local_stream, _)) = listener.accept().await {
+                    let channel = match session
+                        .channel_open_direct_tcpip(&remote_host, remote_port as u32, "127.0.0.1", local_port as u32)
+                        .await
+                    {
+                        Ok(c) => c,
+                        Err(_) => continue,
+                    };
+
+                    tokio::spawn(async move {
+                        let mut channel_stream = channel.into_stream();
+                        let mut buf1 = vec![0u8; 8192];
+                        let mut buf2 = vec![0u8; 8192];
+
+                        loop {
+                            tokio::select! {
+                                result = local_stream.read(&mut buf1) => {
+                                    match result {
+                                        Ok(0) | Err(_) => break,
+                                        Ok(n) => {
+                                            if channel_stream.write_all(&buf1[..n]).await.is_err() {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                result = channel_stream.read(&mut buf2) => {
+                                    match result {
+                                        Ok(0) | Err(_) => break,
+                                        Ok(n) => {
+                                            if local_stream.write_all(&buf2[..n]).await.is_err() {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        });
+
+        Ok(Self {
+            local_port,
+            _handle: handle,
+        })
+    }
+
+    pub fn local_port(&self) -> u16 {
+        self.local_port
+    }
+}
+```
+
+**Step 4: Create SSH mod.rs**
+
+Create `src-tauri/src/ssh/mod.rs`:
+
+```rust
+pub mod tunnel;
+
+pub use tunnel::SshTunnel;
+```
+
+**Step 5: Update lib.rs**
+
+Add to `src-tauri/src/lib.rs`:
+
+```rust
+pub mod ssh;
+```
+
+**Step 6: Update connection commands to use SSH tunnel**
+
+Update `src-tauri/src/commands/connection.rs` test_connection function to use SSH tunnel when enabled.
+
+**Step 7: Build to verify**
+
+Run:
+```bash
+cd src-tauri && cargo check
+```
+
+**Step 8: Commit**
+
+```bash
+git add src-tauri/
+git commit -m "feat: implement ssh tunnel for secure database connections"
+```
+
+---
+
+### Task 8.2: Add SSL/TLS Support
+
+**Files:**
+- Modify: `src-tauri/src/db/mysql.rs`
+- Modify: `src-tauri/src/db/postgres.rs`
+- Modify: `src-tauri/src/commands/connection.rs`
+- Modify: `src-tauri/src/commands/schema.rs`
+
+**Step 1: Update MySQL driver for SSL**
+
+Update the `new` function signature in `src-tauri/src/db/mysql.rs` to accept optional `SslConfig`:
+
+```rust
+pub async fn new(
+    host: &str,
+    port: u16,
+    user: &str,
+    password: &str,
+    database: &str,
+    ssl_config: Option<&crate::models::SslConfig>,
+) -> Result<Self> {
+    let mut opts = sqlx::mysql::MySqlConnectOptions::new()
+        .host(host)
+        .port(port)
+        .username(user)
+        .password(password)
+        .database(database);
+
+    if let Some(ssl) = ssl_config {
+        if ssl.enabled {
+            opts = opts.ssl_mode(sqlx::mysql::MySqlSslMode::Required);
+            if let Some(ca_path) = &ssl.ca_cert_path {
+                opts = opts.ssl_ca(ca_path);
+            }
+            if let Some(cert_path) = &ssl.client_cert_path {
+                opts = opts.ssl_client_cert(cert_path);
+            }
+            if let Some(key_path) = &ssl.client_key_path {
+                opts = opts.ssl_client_key(key_path);
+            }
+        }
+    }
+
+    let pool = MySqlPoolOptions::new()
+        .max_connections(5)
+        .connect_with(opts)
+        .await?;
+
+    Ok(Self { pool })
+}
+```
+
+**Step 2: Update PostgreSQL driver for SSL**
+
+Update the `new` function signature in `src-tauri/src/db/postgres.rs`:
+
+```rust
+pub async fn new(
+    host: &str,
+    port: u16,
+    user: &str,
+    password: &str,
+    database: &str,
+    ssl_config: Option<&crate::models::SslConfig>,
+) -> Result<Self> {
+    let mut opts = sqlx::postgres::PgConnectOptions::new()
+        .host(host)
+        .port(port)
+        .username(user)
+        .password(password)
+        .database(database);
+
+    if let Some(ssl) = ssl_config {
+        if ssl.enabled {
+            opts = opts.ssl_mode(sqlx::postgres::PgSslMode::Require);
+            if let Some(ca_path) = &ssl.ca_cert_path {
+                opts = opts.ssl_root_cert(ca_path);
+            }
+        }
+    }
+
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .connect_with(opts)
+        .await?;
+
+    Ok(Self { pool })
+}
+```
+
+**Step 3: Update all driver usages**
+
+Update command files to pass `ssl_config` when creating drivers.
+
+**Step 4: Build to verify**
+
+Run:
+```bash
+cd src-tauri && cargo check
+```
+
+**Step 5: Commit**
+
+```bash
+git add src-tauri/src/db/ src-tauri/src/commands/
+git commit -m "feat: add ssl/tls support for database connections"
+```
+
+---
+
+## Phase 9: Testing and Packaging
+
+### Task 9.1: Add Basic Integration Tests
+
+**Files:**
+- Create: `src-tauri/tests/integration_test.rs`
+
+**Step 1: Create integration test file**
+
+Create `src-tauri/tests/integration_test.rs`:
+
+```rust
+use database_structure_synchronization::models::*;
+use database_structure_synchronization::diff::compare_schemas;
+
+#[test]
+fn test_compare_empty_schemas() {
+    let source: Vec<TableSchema> = vec![];
+    let target: Vec<TableSchema> = vec![];
+
+    struct MockSqlGen;
+    impl database_structure_synchronization::db::SqlGenerator for MockSqlGen {
+        fn quote_identifier(&self, name: &str) -> String { format!("\"{}\"", name) }
+        fn generate_create_table(&self, _: &TableSchema) -> String { String::new() }
+        fn generate_drop_table(&self, _: &str) -> String { String::new() }
+        fn generate_add_column(&self, _: &str, _: &Column) -> String { String::new() }
+        fn generate_drop_column(&self, _: &str, _: &str) -> String { String::new() }
+        fn generate_modify_column(&self, _: &str, _: &Column) -> String { String::new() }
+        fn generate_add_index(&self, _: &str, _: &Index) -> String { String::new() }
+        fn generate_drop_index(&self, _: &str, _: &str) -> String { String::new() }
+        fn generate_add_foreign_key(&self, _: &str, _: &ForeignKey) -> String { String::new() }
+        fn generate_drop_foreign_key(&self, _: &str, _: &str) -> String { String::new() }
+        fn generate_add_unique(&self, _: &str, _: &UniqueConstraint) -> String { String::new() }
+        fn generate_drop_unique(&self, _: &str, _: &str) -> String { String::new() }
+    }
+
+    let diffs = compare_schemas(&source, &target, &MockSqlGen);
+    assert!(diffs.is_empty());
+}
+
+#[test]
+fn test_detect_new_table() {
+    let source = vec![TableSchema {
+        name: "users".to_string(),
+        columns: vec![Column {
+            name: "id".to_string(),
+            data_type: "INT".to_string(),
+            nullable: false,
+            default_value: None,
+            auto_increment: true,
+            comment: None,
+            ordinal_position: 1,
+        }],
+        primary_key: None,
+        indexes: vec![],
+        foreign_keys: vec![],
+        unique_constraints: vec![],
+    }];
+    let target: Vec<TableSchema> = vec![];
+
+    struct MockSqlGen;
+    impl database_structure_synchronization::db::SqlGenerator for MockSqlGen {
+        fn quote_identifier(&self, name: &str) -> String { format!("\"{}\"", name) }
+        fn generate_create_table(&self, t: &TableSchema) -> String { format!("CREATE TABLE {}", t.name) }
+        fn generate_drop_table(&self, _: &str) -> String { String::new() }
+        fn generate_add_column(&self, _: &str, _: &Column) -> String { String::new() }
+        fn generate_drop_column(&self, _: &str, _: &str) -> String { String::new() }
+        fn generate_modify_column(&self, _: &str, _: &Column) -> String { String::new() }
+        fn generate_add_index(&self, _: &str, _: &Index) -> String { String::new() }
+        fn generate_drop_index(&self, _: &str, _: &str) -> String { String::new() }
+        fn generate_add_foreign_key(&self, _: &str, _: &ForeignKey) -> String { String::new() }
+        fn generate_drop_foreign_key(&self, _: &str, _: &str) -> String { String::new() }
+        fn generate_add_unique(&self, _: &str, _: &UniqueConstraint) -> String { String::new() }
+        fn generate_drop_unique(&self, _: &str, _: &str) -> String { String::new() }
+    }
+
+    let diffs = compare_schemas(&source, &target, &MockSqlGen);
+    assert_eq!(diffs.len(), 1);
+    assert_eq!(diffs[0].diff_type, DiffType::TableAdded);
+    assert_eq!(diffs[0].table_name, "users");
+}
+
+#[test]
+fn test_detect_removed_table() {
+    let source: Vec<TableSchema> = vec![];
+    let target = vec![TableSchema {
+        name: "old_table".to_string(),
+        columns: vec![],
+        primary_key: None,
+        indexes: vec![],
+        foreign_keys: vec![],
+        unique_constraints: vec![],
+    }];
+
+    struct MockSqlGen;
+    impl database_structure_synchronization::db::SqlGenerator for MockSqlGen {
+        fn quote_identifier(&self, name: &str) -> String { format!("\"{}\"", name) }
+        fn generate_create_table(&self, _: &TableSchema) -> String { String::new() }
+        fn generate_drop_table(&self, name: &str) -> String { format!("DROP TABLE {}", name) }
+        fn generate_add_column(&self, _: &str, _: &Column) -> String { String::new() }
+        fn generate_drop_column(&self, _: &str, _: &str) -> String { String::new() }
+        fn generate_modify_column(&self, _: &str, _: &Column) -> String { String::new() }
+        fn generate_add_index(&self, _: &str, _: &Index) -> String { String::new() }
+        fn generate_drop_index(&self, _: &str, _: &str) -> String { String::new() }
+        fn generate_add_foreign_key(&self, _: &str, _: &ForeignKey) -> String { String::new() }
+        fn generate_drop_foreign_key(&self, _: &str, _: &str) -> String { String::new() }
+        fn generate_add_unique(&self, _: &str, _: &UniqueConstraint) -> String { String::new() }
+        fn generate_drop_unique(&self, _: &str, _: &str) -> String { String::new() }
+    }
+
+    let diffs = compare_schemas(&source, &target, &MockSqlGen);
+    assert_eq!(diffs.len(), 1);
+    assert_eq!(diffs[0].diff_type, DiffType::TableRemoved);
+}
+```
+
+**Step 2: Run tests**
+
+Run:
+```bash
+cd src-tauri && cargo test
+```
+
+Expected: All tests pass
+
+**Step 3: Commit**
+
+```bash
+git add src-tauri/tests/
+git commit -m "test: add basic integration tests for diff engine"
+```
+
+---
+
+### Task 9.2: Configure Build and Package
+
+**Files:**
+- Modify: `src-tauri/tauri.conf.json`
+
+**Step 1: Update Tauri configuration**
+
+Ensure `src-tauri/tauri.conf.json` has proper settings:
+
+```json
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Database Structure Sync",
+  "version": "0.1.0",
+  "identifier": "com.dbstructsync.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Database Structure Sync",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "targets": "all",
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    }
+  }
+}
+```
+
+**Step 2: Build release**
+
+Run:
+```bash
+npm run tauri build
+```
+
+Expected: Bundled application created in `src-tauri/target/release/bundle/`
+
+**Step 3: Commit**
+
+```bash
+git add src-tauri/tauri.conf.json
+git commit -m "chore: configure build and packaging settings"
+```
+
+---
+
+## Summary
+
+This implementation plan covers all phases:
+
+| Phase | Tasks | Description |
+|-------|-------|-------------|
+| 1 | 1.1-1.4 | Project setup, dependencies, i18n |
+| 2 | 2.1 | Rust data models |
+| 3 | 3.1 | SQLite storage with keychain encryption |
+| 4 | 4.1-4.3 | MySQL, PostgreSQL, MariaDB drivers |
+| 5 | 5.1 | Diff comparison engine |
+| 6 | 6.1 | Tauri commands |
+| 7 | 7.1-7.6 | Frontend components (layout, forms, diff tree, preview, integration) |
+| 8 | 8.1-8.2 | SSH tunnel and SSL/TLS support |
+| 9 | 9.1-9.2 | Testing and packaging |
+
+**Total: 17 tasks with step-by-step implementation instructions.**
