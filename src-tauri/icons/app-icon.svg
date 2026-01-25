@@ -1,52 +1,38 @@
-<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="dbGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#DC2626" />
-      <stop offset="100%" stop-color="#991B1B" />
-    </linearGradient>
-    <linearGradient id="dbGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2563EB" />
+    <linearGradient id="logoGradPrimary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6" />
       <stop offset="100%" stop-color="#1D4ED8" />
     </linearGradient>
-    <linearGradient id="arrowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+    <linearGradient id="logoGradSecondary" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#10B981" />
       <stop offset="100%" stop-color="#059669" />
     </linearGradient>
   </defs>
 
-  <!-- Left database (red/source) -->
-  <g transform="translate(100, 200)">
-    <!-- Body -->
-    <path d="M0 80v200c0 44.2 89.5 80 200 80s200-35.8 200-80V80" fill="url(#dbGrad1)" />
-    <!-- Top ellipse -->
-    <ellipse cx="200" cy="80" rx="200" ry="80" fill="url(#dbGrad1)" />
-    <!-- Highlight on top -->
-    <ellipse cx="200" cy="80" rx="160" ry="60" fill="none" stroke="white" stroke-width="8" opacity="0.3" />
-    <!-- Middle ring -->
-    <ellipse cx="200" cy="180" rx="200" ry="80" fill="none" stroke="white" stroke-width="6" opacity="0.2" />
-    <!-- Bottom ring -->
-    <ellipse cx="200" cy="280" rx="200" ry="80" fill="none" stroke="white" stroke-width="6" opacity="0.2" />
+  <!-- Left database cylinder - simplified -->
+  <g transform="translate(56, 120)">
+    <rect x="0" y="40" width="160" height="200" rx="16" fill="url(#logoGradPrimary)" />
+    <ellipse cx="80" cy="40" rx="80" ry="32" fill="url(#logoGradPrimary)" />
+    <ellipse cx="80" cy="40" rx="80" ry="32" fill="white" opacity="0.2" />
+    <ellipse cx="80" cy="140" rx="80" ry="32" fill="none" stroke="white" stroke-width="3" opacity="0.3" />
+    <ellipse cx="80" cy="240" rx="80" ry="32" fill="url(#logoGradPrimary)" />
   </g>
 
-  <!-- Right database (blue/target) -->
-  <g transform="translate(524, 384)">
-    <!-- Body -->
-    <path d="M0 80v200c0 44.2 89.5 80 200 80s200-35.8 200-80V80" fill="url(#dbGrad2)" />
-    <!-- Top ellipse -->
-    <ellipse cx="200" cy="80" rx="200" ry="80" fill="url(#dbGrad2)" />
-    <!-- Highlight on top -->
-    <ellipse cx="200" cy="80" rx="160" ry="60" fill="none" stroke="white" stroke-width="8" opacity="0.3" />
-    <!-- Middle ring -->
-    <ellipse cx="200" cy="180" rx="200" ry="80" fill="none" stroke="white" stroke-width="6" opacity="0.2" />
-    <!-- Bottom ring -->
-    <ellipse cx="200" cy="280" rx="200" ry="80" fill="none" stroke="white" stroke-width="6" opacity="0.2" />
+  <!-- Right database cylinder - simplified -->
+  <g transform="translate(296, 152)">
+    <rect x="0" y="40" width="160" height="200" rx="16" fill="url(#logoGradPrimary)" />
+    <ellipse cx="80" cy="40" rx="80" ry="32" fill="url(#logoGradPrimary)" />
+    <ellipse cx="80" cy="40" rx="80" ry="32" fill="white" opacity="0.2" />
+    <ellipse cx="80" cy="140" rx="80" ry="32" fill="none" stroke="white" stroke-width="3" opacity="0.3" />
+    <ellipse cx="80" cy="240" rx="80" ry="32" fill="url(#logoGradPrimary)" />
   </g>
 
-  <!-- Sync arrows (green) -->
-  <g fill="url(#arrowGrad)">
-    <!-- Right arrow -->
-    <path d="M480 340 L580 340 L580 300 L680 380 L580 460 L580 420 L480 420 Z" />
-    <!-- Left arrow -->
-    <path d="M544 560 L444 560 L444 520 L344 600 L444 680 L444 640 L544 640 Z" />
+  <!-- Sync arrows - modern style -->
+  <g fill="url(#logoGradSecondary)">
+    <!-- Top arrow (left to right) -->
+    <path d="M200 200 L280 200 L280 180 L320 210 L280 240 L280 220 L200 220 Z" />
+    <!-- Bottom arrow (right to left) -->
+    <path d="M312 300 L232 300 L232 280 L192 310 L232 340 L232 320 L312 320 Z" />
   </g>
 </svg>
