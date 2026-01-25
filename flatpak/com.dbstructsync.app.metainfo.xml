@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.dbstructsync.app</id>
+
+  <name>Database Structure Sync</name>
+  <summary>Compare and synchronize database table structures</summary>
+
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+
+  <developer id="com.github.myxiaoao">
+    <name>Cooper</name>
+  </developer>
+
+  <description>
+    <p>
+      Database Structure Sync is a cross-platform desktop application for comparing and
+      synchronizing database table structures between MySQL, PostgreSQL, and MariaDB databases.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Compare database schemas between different database servers</li>
+      <li>Generate SQL migration scripts for schema differences</li>
+      <li>Support for MySQL, PostgreSQL, and MariaDB</li>
+      <li>SSH tunnel support for secure connections</li>
+      <li>SSL/TLS encryption support</li>
+      <li>Dark and light theme support</li>
+      <li>Multi-language support (English and Chinese)</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">com.dbstructsync.app.desktop</launchable>
+
+  <url type="homepage">https://github.com/myxiaoao/database-structure-sync</url>
+  <url type="bugtracker">https://github.com/myxiaoao/database-structure-sync/issues</url>
+  <url type="vcs-browser">https://github.com/myxiaoao/database-structure-sync</url>
+
+  <content_rating type="oars-1.1" />
+
+  <branding>
+    <color type="primary" scheme_preference="light">#3b82f6</color>
+    <color type="primary" scheme_preference="dark">#1e40af</color>
+  </branding>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+
+  <categories>
+    <category>Development</category>
+    <category>Database</category>
+  </categories>
+
+  <keywords>
+    <keyword>database</keyword>
+    <keyword>schema</keyword>
+    <keyword>sync</keyword>
+    <keyword>mysql</keyword>
+    <keyword>postgresql</keyword>
+    <keyword>mariadb</keyword>
+    <keyword>migration</keyword>
+  </keywords>
+
+  <releases>
+    <release version="0.1.0" date="2024-01-01">
+      <description>
+        <p>Initial release with core features:</p>
+        <ul>
+          <li>Database connection management</li>
+          <li>Schema comparison between databases</li>
+          <li>SQL migration script generation</li>
+          <li>SSH tunnel support</li>
+          <li>SSL/TLS support</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Main application window showing database comparison</caption>
+      <image>https://raw.githubusercontent.com/myxiaoao/database-structure-sync/main/screenshots/main.png</image>
+    </screenshot>
+  </screenshots>
+</component>

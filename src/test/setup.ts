@@ -16,6 +16,21 @@ Object.defineProperty(window, "matchMedia", {
   })),
 });
 
+// Mock pointer capture methods (needed for Radix UI components)
+Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
+Element.prototype.setPointerCapture = vi.fn();
+Element.prototype.releasePointerCapture = vi.fn();
+
+// Mock ResizeObserver
+global.ResizeObserver = vi.fn().mockImplementation(() => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn(),
+}));
+
+// Mock scrollIntoView (needed for Radix UI Select)
+Element.prototype.scrollIntoView = vi.fn();
+
 // Mock Tauri API
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),

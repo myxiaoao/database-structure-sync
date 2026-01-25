@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Database Structure Sync
+Comment=Compare and synchronize database table structures
+Exec=database-structure-sync
+Icon=com.dbstructsync.app
+Terminal=false
+Type=Application
+Categories=Development;Database;
+Keywords=database;schema;sync;mysql;postgresql;mariadb;
+StartupWMClass=database-structure-sync
