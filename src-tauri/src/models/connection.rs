@@ -64,7 +64,7 @@ pub struct Connection {
     pub host: String,
     pub port: u16,
     pub username: String,
-    #[serde(skip_serializing)]
+    #[serde(default, skip_serializing)]
     pub password: String,
     pub database: String,
     pub ssh_config: Option<SshConfig>,
@@ -80,6 +80,7 @@ pub struct ConnectionInput {
     pub host: String,
     pub port: u16,
     pub username: String,
+    #[serde(default)]
     pub password: String,
     pub database: String,
     pub ssh_config: Option<SshConfig>,

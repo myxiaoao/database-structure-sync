@@ -70,9 +70,18 @@ impl SchemaReader for MySqlDriver {
         Ok(())
     }
 
+    async fn list_databases(&self) -> Result<Vec<String>> {
+        let rows: Vec<(String,)> = sqlx::query_as(
+            "SELECT CAST(schema_name AS CHAR) FROM information_schema.schemata WHERE schema_name NOT IN ('information_schema', 'performance_schema', 'mysql', 'sys') ORDER BY schema_name"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|(name,)| name).collect())
+    }
+
     async fn get_tables(&self) -> Result<Vec<TableSchema>> {
         let table_names: Vec<(String,)> = sqlx::query_as(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'"
+            "SELECT CAST(table_name AS CHAR) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'"
         )
         .fetch_all(&self.pool)
         .await?;
@@ -104,12 +113,12 @@ impl MySqlDriver {
         let rows: Vec<(String, String, String, Option<String>, String, Option<String>, u32)> = sqlx::query_as(
             r#"
             SELECT
-                column_name,
-                column_type,
-                is_nullable,
-                column_default,
-                extra,
-                column_comment,
+                CAST(column_name AS CHAR),
+                CAST(column_type AS CHAR),
+                CAST(is_nullable AS CHAR),
+                CAST(column_default AS CHAR),
+                CAST(extra AS CHAR),
+                CAST(column_comment AS CHAR),
                 ordinal_position
             FROM information_schema.columns
             WHERE table_schema = DATABASE() AND table_name = ?
@@ -136,7 +145,7 @@ impl MySqlDriver {
     async fn get_primary_key(&self, table_name: &str) -> Result<Option<PrimaryKey>> {
         let rows: Vec<(String, String)> = sqlx::query_as(
             r#"
-            SELECT constraint_name, column_name
+            SELECT CAST(constraint_name AS CHAR), CAST(column_name AS CHAR)
             FROM information_schema.key_column_usage
             WHERE table_schema = DATABASE() AND table_name = ? AND constraint_name = 'PRIMARY'
             ORDER BY ordinal_position
@@ -157,7 +166,7 @@ impl MySqlDriver {
     async fn get_indexes(&self, table_name: &str) -> Result<Vec<Index>> {
         let rows: Vec<(String, i32, String, String)> = sqlx::query_as(
             r#"
-            SELECT index_name, non_unique, column_name, index_type
+            SELECT CAST(index_name AS CHAR), non_unique, CAST(column_name AS CHAR), CAST(index_type AS CHAR)
             FROM information_schema.statistics
             WHERE table_schema = DATABASE() AND table_name = ? AND index_name != 'PRIMARY'
             ORDER BY index_name, seq_in_index
@@ -182,12 +191,12 @@ impl MySqlDriver {
         let rows: Vec<(String, String, String, String, String, String)> = sqlx::query_as(
             r#"
             SELECT
-                kcu.constraint_name,
-                kcu.column_name,
-                kcu.referenced_table_name,
-                kcu.referenced_column_name,
-                rc.delete_rule,
-                rc.update_rule
+                CAST(kcu.constraint_name AS CHAR),
+                CAST(kcu.column_name AS CHAR),
+                CAST(kcu.referenced_table_name AS CHAR),
+                CAST(kcu.referenced_column_name AS CHAR),
+                CAST(rc.delete_rule AS CHAR),
+                CAST(rc.update_rule AS CHAR)
             FROM information_schema.key_column_usage kcu
             JOIN information_schema.referential_constraints rc
                 ON kcu.constraint_name = rc.constraint_name AND kcu.table_schema = rc.constraint_schema
@@ -214,7 +223,7 @@ impl MySqlDriver {
     async fn get_unique_constraints(&self, table_name: &str) -> Result<Vec<UniqueConstraint>> {
         let rows: Vec<(String, String)> = sqlx::query_as(
             r#"
-            SELECT tc.constraint_name, kcu.column_name
+            SELECT CAST(tc.constraint_name AS CHAR), CAST(kcu.column_name AS CHAR)
             FROM information_schema.table_constraints tc
             JOIN information_schema.key_column_usage kcu
                 ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema

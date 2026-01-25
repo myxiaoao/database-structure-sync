@@ -66,6 +66,7 @@
     "source": "源数据库",
     "target": "目标数据库",
     "selectConnection": "选择连接...",
+    "selectDatabase": "选择数据库...",
     "compare": "开始比较",
     "execute": "执行同步",
     "selectAll": "全选",

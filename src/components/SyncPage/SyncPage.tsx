@@ -1,4 +1,3 @@
-import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +11,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { DiffTree } from "@/components/DiffTree";
 import { SqlPreview } from "@/components/SqlPreview";
-import { api, Connection, DiffItem, DiffResult } from "@/lib/api";
+import { useSync } from "@/hooks";
+import type { Connection } from "@/types";
 
 interface SyncPageProps {
   connections: Connection[];
@@ -20,72 +20,36 @@ interface SyncPageProps {
 
 export function SyncPage({ connections }: SyncPageProps) {
   const { t } = useTranslation();
-  const [sourceId, setSourceId] = useState<string>("");
-  const [targetId, setTargetId] = useState<string>("");
-  const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [comparing, setComparing] = useState(false);
-  const [executing, setExecuting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedItem, setSelectedItem] = useState<DiffItem | null>(null);
 
-  const handleCompare = async () => {
-    if (!sourceId || !targetId) return;
-
-    setComparing(true);
-    setError(null);
-    setDiffResult(null);
-    setSelectedItems(new Set());
-    setSelectedItem(null);
-
-    try {
-      const result = await api.compareDatabases(sourceId, targetId);
-      setDiffResult(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setComparing(false);
-    }
-  };
-
-  const handleSelectAll = () => {
-    if (!diffResult) return;
-    const allIds = new Set<string>(diffResult.items.map((item) => item.id));
-    setSelectedItems(allIds);
-  };
-
-  const handleDeselectAll = () => {
-    setSelectedItems(new Set());
-  };
-
-  const selectedSql = useMemo(() => {
-    if (!diffResult) return "";
-    return diffResult.items
-      .filter((item) => selectedItems.has(item.id))
-      .map((item) => item.sql)
-      .join("\n\n");
-  }, [diffResult, selectedItems]);
-
-  const handleExecute = async () => {
-    if (!targetId || !selectedSql) return;
-
-    setExecuting(true);
-    setError(null);
-
-    try {
-      const statements = selectedSql
-        .split("\n\n")
-        .filter((s) => s.trim())
-        .map((s) => s.trim());
-      await api.executeSync(targetId, statements);
-      // Refresh comparison after execution
-      await handleCompare();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setExecuting(false);
-    }
-  };
+  const {
+    sourceId,
+    targetId,
+    sourceDb,
+    targetDb,
+    setSourceId,
+    setTargetId,
+    setSourceDb,
+    setTargetDb,
+    sourceNeedsDbSelect,
+    targetNeedsDbSelect,
+    sourceDatabases,
+    targetDatabases,
+    loadingSourceDbs,
+    loadingTargetDbs,
+    diffResult,
+    selectedItems,
+    setSelectedItems,
+    selectedItem,
+    setSelectedItem,
+    selectedSql,
+    canCompare,
+    handleCompare,
+    handleExecute,
+    handleSelectAll,
+    handleDeselectAll,
+    isComparing,
+    isExecuting,
+  } = useSync({ connections });
 
   const previewSql = selectedItem?.sql || selectedSql;
 
@@ -97,46 +61,77 @@ export function SyncPage({ connections }: SyncPageProps) {
           <div className="flex items-end gap-4">
             <div className="flex-1 space-y-2">
               <label className="text-sm font-medium">{t("sync.source")}</label>
-              <Select value={sourceId} onValueChange={setSourceId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("sync.selectConnection")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {connections.map((conn) => (
-                    <SelectItem key={conn.id} value={conn.id}>
-                      {conn.name} ({conn.db_type})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select value={sourceId} onValueChange={setSourceId}>
+                  <SelectTrigger className={sourceNeedsDbSelect ? "flex-1" : ""}>
+                    <SelectValue placeholder={t("sync.selectConnection")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {connections.map((conn) => (
+                      <SelectItem key={conn.id} value={conn.id}>
+                        {conn.name} ({conn.db_type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {sourceNeedsDbSelect && (
+                  <Select value={sourceDb} onValueChange={setSourceDb} disabled={loadingSourceDbs}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue
+                        placeholder={loadingSourceDbs ? t("common.loading") : t("sync.selectDatabase")}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sourceDatabases.map((db) => (
+                        <SelectItem key={db} value={db}>
+                          {db}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             </div>
             <div className="flex-1 space-y-2">
               <label className="text-sm font-medium">{t("sync.target")}</label>
-              <Select value={targetId} onValueChange={setTargetId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("sync.selectConnection")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {connections.map((conn) => (
-                    <SelectItem key={conn.id} value={conn.id}>
-                      {conn.name} ({conn.db_type})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select value={targetId} onValueChange={setTargetId}>
+                  <SelectTrigger className={targetNeedsDbSelect ? "flex-1" : ""}>
+                    <SelectValue placeholder={t("sync.selectConnection")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {connections.map((conn) => (
+                      <SelectItem key={conn.id} value={conn.id}>
+                        {conn.name} ({conn.db_type})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {targetNeedsDbSelect && (
+                  <Select value={targetDb} onValueChange={setTargetDb} disabled={loadingTargetDbs}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue
+                        placeholder={loadingTargetDbs ? t("common.loading") : t("sync.selectDatabase")}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {targetDatabases.map((db) => (
+                        <SelectItem key={db} value={db}>
+                          {db}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             </div>
-            <Button onClick={handleCompare} disabled={!sourceId || !targetId || comparing}>
-              {comparing ? t("common.loading") : t("sync.compare")}
+            <Button onClick={handleCompare} disabled={!canCompare || isComparing}>
+              {isComparing ? t("common.loading") : t("sync.compare")}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {error && (
-        <div className="p-3 rounded-md bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 text-sm">
-          {error}
-        </div>
-      )}
 
       {/* Diff Results */}
       {diffResult && (
@@ -176,8 +171,8 @@ export function SyncPage({ connections }: SyncPageProps) {
             <div className="flex-1 min-h-0">
               <SqlPreview sql={previewSql} />
             </div>
-            <Button onClick={handleExecute} disabled={!selectedSql || executing} className="w-full">
-              {executing ? t("common.loading") : t("sync.execute")}
+            <Button onClick={handleExecute} disabled={!selectedSql || isExecuting} className="w-full">
+              {isExecuting ? t("common.loading") : t("sync.execute")}
             </Button>
           </div>
         </div>

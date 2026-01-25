@@ -193,16 +193,50 @@ async fn test_connection(input: ConnectionInput) -> Result<(), String> {
 }
 
 #[tauri::command]
+async fn list_databases(
+    state: State<'_, AppState>,
+    connection_id: String,
+) -> Result<Vec<String>, String> {
+    info!("Listing databases for connection: {}", connection_id);
+
+    let store = state.config_store.lock().await;
+    let conn = store
+        .get_connection(&connection_id)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| {
+            error!("Connection not found: {}", connection_id);
+            "Connection not found".to_string()
+        })?;
+    drop(store);
+
+    let driver = DatabaseDriver::create(&conn).await.map_err(|e| {
+        error!("Failed to connect: {}", e);
+        e.to_string()
+    })?;
+
+    let databases = driver.as_reader().list_databases().await.map_err(|e| {
+        error!("Failed to list databases: {}", e);
+        e.to_string()
+    })?;
+
+    info!("Found {} databases", databases.len());
+    Ok(databases)
+}
+
+#[tauri::command]
 async fn compare_databases(
     state: State<'_, AppState>,
     source_id: String,
     target_id: String,
+    source_database: Option<String>,
+    target_database: Option<String>,
 ) -> Result<DiffResult, String> {
     info!("Comparing databases: {} -> {}", source_id, target_id);
 
     let store = state.config_store.lock().await;
 
-    let source_conn = store
+    let mut source_conn = store
         .get_connection(&source_id)
         .await
         .map_err(|e| e.to_string())?
@@ -211,7 +245,7 @@ async fn compare_databases(
             "Source connection not found".to_string()
         })?;
 
-    let target_conn = store
+    let mut target_conn = store
         .get_connection(&target_id)
         .await
         .map_err(|e| e.to_string())?
@@ -221,6 +255,14 @@ async fn compare_databases(
         })?;
 
     drop(store);
+
+    // Override database if provided
+    if let Some(db) = source_database {
+        source_conn.database = db;
+    }
+    if let Some(db) = target_database {
+        target_conn.database = db;
+    }
 
     info!(
         "Connecting to source: {} ({})",
@@ -273,6 +315,7 @@ async fn execute_sync(
     state: State<'_, AppState>,
     target_id: String,
     sql_statements: Vec<String>,
+    target_database: Option<String>,
 ) -> Result<(), String> {
     info!(
         "Executing sync on target {}: {} statements",
@@ -281,7 +324,7 @@ async fn execute_sync(
     );
 
     let store = state.config_store.lock().await;
-    let target_conn = store
+    let mut target_conn = store
         .get_connection(&target_id)
         .await
         .map_err(|e| e.to_string())?
@@ -290,6 +333,11 @@ async fn execute_sync(
             "Target connection not found".to_string()
         })?;
     drop(store);
+
+    // Override database if provided
+    if let Some(db) = target_database {
+        target_conn.database = db;
+    }
 
     let driver = DatabaseDriver::create(&target_conn).await.map_err(|e| {
         error!("Failed to connect to target: {}", e);
@@ -355,6 +403,7 @@ fn main() {
             save_connection,
             delete_connection,
             test_connection,
+            list_databases,
             compare_databases,
             execute_sync
         ])

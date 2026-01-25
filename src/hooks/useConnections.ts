@@ -1,56 +1,74 @@
-import { useState, useEffect, useCallback } from "react";
-import { api, Connection, ConnectionInput } from "@/lib/api";
+import { useState, useCallback } from "react";
+import {
+  useConnectionsQuery,
+  useSaveConnectionMutation,
+  useDeleteConnectionMutation,
+  useTestConnectionMutation,
+} from "@/lib/query";
+import type { Connection, ConnectionInput } from "@/types";
 
 export function useConnections() {
-  const [connections, setConnections] = useState<Connection[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [editingConnection, setEditingConnection] = useState<Connection | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
-  const fetchConnections = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await api.listConnections();
-      setConnections(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
+  const { data: connections = [], isLoading, error, refetch } = useConnectionsQuery();
+
+  const saveMutation = useSaveConnectionMutation();
+  const deleteMutation = useDeleteConnectionMutation();
+  const testMutation = useTestConnectionMutation();
+
+  const openNewConnection = useCallback(() => {
+    setEditingConnection(null);
+    setIsFormOpen(true);
   }, []);
 
-  useEffect(() => {
-    fetchConnections();
-  }, [fetchConnections]);
+  const openEditConnection = useCallback((connection: Connection) => {
+    setEditingConnection(connection);
+    setIsFormOpen(true);
+  }, []);
+
+  const closeForm = useCallback(() => {
+    setIsFormOpen(false);
+    setEditingConnection(null);
+  }, []);
 
   const saveConnection = useCallback(
     async (input: ConnectionInput) => {
-      const saved = await api.saveConnection(input);
-      await fetchConnections();
-      return saved;
+      await saveMutation.mutateAsync(input);
+      closeForm();
     },
-    [fetchConnections]
+    [saveMutation, closeForm]
   );
 
   const deleteConnection = useCallback(
     async (id: string) => {
-      await api.deleteConnection(id);
-      await fetchConnections();
+      await deleteMutation.mutateAsync(id);
     },
-    [fetchConnections]
+    [deleteMutation]
   );
 
-  const testConnection = useCallback(async (input: ConnectionInput) => {
-    await api.testConnection(input);
-  }, []);
+  const testConnection = useCallback(
+    async (input: ConnectionInput) => {
+      await testMutation.mutateAsync(input);
+    },
+    [testMutation]
+  );
 
   return {
     connections,
-    loading,
-    error,
-    refresh: fetchConnections,
+    isLoading,
+    error: error?.message ?? null,
+    refetch,
+    editingConnection,
+    isFormOpen,
+    openNewConnection,
+    openEditConnection,
+    closeForm,
     saveConnection,
     deleteConnection,
     testConnection,
+    isSaving: saveMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+    isTesting: testMutation.isPending,
   };
 }

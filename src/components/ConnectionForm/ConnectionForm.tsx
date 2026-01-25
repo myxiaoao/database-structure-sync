@@ -30,9 +30,9 @@ interface ConnectionFormProps {
 }
 
 const DEFAULT_PORTS: Record<string, number> = {
-  MySQL: 3306,
-  PostgreSQL: 5432,
-  MariaDB: 3306,
+  mysql: 3306,
+  postgresql: 5432,
+  mariadb: 3306,
 };
 
 export function ConnectionForm({
@@ -49,7 +49,7 @@ export function ConnectionForm({
 
   const [formData, setFormData] = useState<ConnectionInput>({
     name: "",
-    db_type: "MySQL",
+    db_type: "mysql",
     host: "localhost",
     port: 3306,
     username: "",
@@ -87,7 +87,7 @@ export function ConnectionForm({
     } else {
       setFormData({
         name: "",
-        db_type: "MySQL",
+        db_type: "mysql",
         host: "localhost",
         port: 3306,
         username: "",
@@ -105,7 +105,7 @@ export function ConnectionForm({
     setTestResult(null);
   };
 
-  const handleDbTypeChange = (value: "MySQL" | "PostgreSQL" | "MariaDB") => {
+  const handleDbTypeChange = (value: "mysql" | "postgresql" | "mariadb") => {
     setFormData((prev) => ({
       ...prev,
       db_type: value,
@@ -177,9 +177,9 @@ export function ConnectionForm({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="MySQL">MySQL</SelectItem>
-                    <SelectItem value="PostgreSQL">PostgreSQL</SelectItem>
-                    <SelectItem value="MariaDB">MariaDB</SelectItem>
+                    <SelectItem value="mysql">MySQL</SelectItem>
+                    <SelectItem value="postgresql">PostgreSQL</SelectItem>
+                    <SelectItem value="mariadb">MariaDB</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

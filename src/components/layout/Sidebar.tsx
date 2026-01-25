@@ -37,7 +37,7 @@ export function Sidebar({
 
   return (
     <div className="w-64 border-r bg-muted/30 flex flex-col">
-      <div className="p-4 border-b">
+      <div className="px-4 py-2 border-b flex items-center h-[45px]">
         <h2 className="font-semibold text-sm">{t("connection.title")}</h2>
       </div>
 

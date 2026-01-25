@@ -7,6 +7,7 @@ use crate::models::{Column, Index, TableSchema};
 pub trait SchemaReader: Send + Sync {
     async fn test_connection(&self) -> Result<()>;
     async fn get_tables(&self) -> Result<Vec<TableSchema>>;
+    async fn list_databases(&self) -> Result<Vec<String>>;
 }
 
 pub trait SqlGenerator: Send + Sync {

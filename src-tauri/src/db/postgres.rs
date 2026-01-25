@@ -64,6 +64,15 @@ impl SchemaReader for PostgresDriver {
         Ok(())
     }
 
+    async fn list_databases(&self) -> Result<Vec<String>> {
+        let rows: Vec<(String,)> = sqlx::query_as(
+            "SELECT datname FROM pg_database WHERE datistemplate = false AND datname NOT IN ('postgres') ORDER BY datname"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|(name,)| name).collect())
+    }
+
     async fn get_tables(&self) -> Result<Vec<TableSchema>> {
         let table_names: Vec<(String,)> = sqlx::query_as(
             "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"
