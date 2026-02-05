@@ -31,4 +31,11 @@ export const syncApi = {
       targetDatabase: options.targetDatabase,
     });
   },
+
+  async saveSqlFile(filePath: string, content: string): Promise<void> {
+    return invoke<void>("save_sql_file", {
+      filePath,
+      content,
+    });
+  },
 };

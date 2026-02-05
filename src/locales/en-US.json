@@ -92,7 +92,10 @@
   },
   "sql": {
     "preview": "SQL Preview",
-    "empty": "Select items to preview SQL"
+    "empty": "Select items to preview SQL",
+    "export": "Export",
+    "exportSuccess": "SQL file exported successfully",
+    "exportFailed": "Failed to export SQL file"
   },
   "common": {
     "confirm": "Confirm",

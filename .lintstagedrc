@@ -1,4 +1,4 @@
 {
   "src/**/*.{ts,tsx}": ["eslint --fix", "prettier --write"],
-  "src-tauri/src/**/*.rs": ["cargo fmt --"]
+  "src-tauri/src/**/*.rs": ["cargo fmt --manifest-path src-tauri/Cargo.toml --"]
 }

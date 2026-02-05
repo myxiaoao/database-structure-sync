@@ -1,5 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
+import { save } from "@tauri-apps/plugin-dialog";
 import { useDatabasesQuery, useCompareMutation, useExecuteSyncMutation } from "@/lib/query";
+import { syncApi } from "@/lib/api/sync";
 import type { DiffItem, DiffResult, Connection } from "@/types";
 
 interface UseSyncOptions {
@@ -54,7 +56,16 @@ export function useSync({ connections }: UseSyncOptions) {
     });
 
     setDiffResult(result);
-  }, [canCompare, sourceId, targetId, sourceNeedsDbSelect, targetNeedsDbSelect, sourceDb, targetDb, compareMutation]);
+  }, [
+    canCompare,
+    sourceId,
+    targetId,
+    sourceNeedsDbSelect,
+    targetNeedsDbSelect,
+    sourceDb,
+    targetDb,
+    compareMutation,
+  ]);
 
   const selectedSql = useMemo(() => {
     if (!diffResult) return "";
@@ -90,6 +101,29 @@ export function useSync({ connections }: UseSyncOptions) {
   const handleDeselectAll = useCallback(() => {
     setSelectedItems(new Set());
   }, []);
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportSql = useCallback(async (): Promise<boolean> => {
+    if (!selectedSql) return false;
+
+    setIsExporting(true);
+    try {
+      const filePath = await save({
+        defaultPath: "sync.sql",
+        filters: [{ name: "SQL", extensions: ["sql"] }],
+      });
+
+      if (!filePath) {
+        return false;
+      }
+
+      await syncApi.saveSqlFile(filePath, selectedSql);
+      return true;
+    } finally {
+      setIsExporting(false);
+    }
+  }, [selectedSql]);
 
   // Reset database selection when connection changes
   const handleSourceChange = useCallback((id: string) => {
@@ -139,9 +173,11 @@ export function useSync({ connections }: UseSyncOptions) {
     handleExecute,
     handleSelectAll,
     handleDeselectAll,
+    handleExportSql,
 
     // Loading states
     isComparing: compareMutation.isPending,
     isExecuting: executeMutation.isPending,
+    isExporting,
   };
 }

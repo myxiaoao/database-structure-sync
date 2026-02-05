@@ -2,6 +2,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use log::{error, info, warn};
+use std::fs;
+use std::path::Path;
 use std::sync::Arc;
 use tauri::{Manager, State};
 use tokio::sync::Mutex;
@@ -105,13 +107,10 @@ impl DatabaseDriver {
 async fn list_connections(state: State<'_, AppState>) -> Result<Vec<Connection>, String> {
     info!("Listing all connections");
     let store = state.config_store.lock().await;
-    store
-        .list_connections()
-        .await
-        .map_err(|e| {
-            error!("Failed to list connections: {}", e);
-            e.to_string()
-        })
+    store.list_connections().await.map_err(|e| {
+        error!("Failed to list connections: {}", e);
+        e.to_string()
+    })
 }
 
 #[tauri::command]
@@ -121,13 +120,10 @@ async fn get_connection(
 ) -> Result<Option<Connection>, String> {
     info!("Getting connection: {}", id);
     let store = state.config_store.lock().await;
-    store
-        .get_connection(&id)
-        .await
-        .map_err(|e| {
-            error!("Failed to get connection {}: {}", id, e);
-            e.to_string()
-        })
+    store.get_connection(&id).await.map_err(|e| {
+        error!("Failed to get connection {}: {}", id, e);
+        e.to_string()
+    })
 }
 
 #[tauri::command]
@@ -137,26 +133,20 @@ async fn save_connection(
 ) -> Result<Connection, String> {
     info!("Saving connection: {}", input.name);
     let store = state.config_store.lock().await;
-    store
-        .save_connection(input)
-        .await
-        .map_err(|e| {
-            error!("Failed to save connection: {}", e);
-            e.to_string()
-        })
+    store.save_connection(input).await.map_err(|e| {
+        error!("Failed to save connection: {}", e);
+        e.to_string()
+    })
 }
 
 #[tauri::command]
 async fn delete_connection(state: State<'_, AppState>, id: String) -> Result<(), String> {
     info!("Deleting connection: {}", id);
     let store = state.config_store.lock().await;
-    store
-        .delete_connection(&id)
-        .await
-        .map_err(|e| {
-            error!("Failed to delete connection {}: {}", id, e);
-            e.to_string()
-        })
+    store.delete_connection(&id).await.map_err(|e| {
+        error!("Failed to delete connection {}: {}", id, e);
+        e.to_string()
+    })
 }
 
 #[tauri::command]
@@ -299,7 +289,11 @@ async fn compare_databases(
         source_tables.len(),
         target_tables.len()
     );
-    let items = compare_schemas(&source_tables, &target_tables, target_driver.as_sql_generator());
+    let items = compare_schemas(
+        &source_tables,
+        &target_tables,
+        target_driver.as_sql_generator(),
+    );
 
     info!("Comparison complete: {} differences found", items.len());
 
@@ -356,10 +350,34 @@ async fn execute_sync(
     Ok(())
 }
 
+#[tauri::command]
+async fn save_sql_file(file_path: String, content: String) -> Result<(), String> {
+    info!("Saving SQL file to: {}", file_path);
+
+    let path = Path::new(&file_path);
+
+    // Create parent directories if they don't exist
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| {
+            error!("Failed to create directory: {}", e);
+            e.to_string()
+        })?;
+    }
+
+    fs::write(path, content).map_err(|e| {
+        error!("Failed to write SQL file: {}", e);
+        e.to_string()
+    })?;
+
+    info!("SQL file saved successfully");
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_log::Builder::new()
                 .target(tauri_plugin_log::Target::new(
@@ -405,7 +423,8 @@ fn main() {
             test_connection,
             list_databases,
             compare_databases,
-            execute_sync
+            execute_sync,
+            save_sql_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

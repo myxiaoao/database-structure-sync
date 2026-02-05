@@ -92,7 +92,10 @@
   },
   "sql": {
     "preview": "SQL 预览",
-    "empty": "选择项目以预览 SQL"
+    "empty": "选择项目以预览 SQL",
+    "export": "导出",
+    "exportSuccess": "SQL 文件导出成功",
+    "exportFailed": "导出 SQL 文件失败"
   },
   "common": {
     "confirm": "确认",

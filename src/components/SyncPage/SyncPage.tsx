@@ -1,5 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -46,9 +48,22 @@ export function SyncPage({ connections }: SyncPageProps) {
     handleExecute,
     handleSelectAll,
     handleDeselectAll,
+    handleExportSql,
     isComparing,
     isExecuting,
+    isExporting,
   } = useSync({ connections });
+
+  const onExportSql = useCallback(async () => {
+    try {
+      const success = await handleExportSql();
+      if (success) {
+        toast.success(t("sql.exportSuccess"));
+      }
+    } catch {
+      toast.error(t("sql.exportFailed"));
+    }
+  }, [handleExportSql, t]);
 
   // 展开状态管理
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
@@ -222,6 +237,16 @@ export function SyncPage({ connections }: SyncPageProps) {
             <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
               <div className="flex items-center justify-between px-3 h-9 border-b bg-muted/30 shrink-0">
                 <span className="text-xs font-medium">{t("sql.preview")}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onExportSql}
+                  disabled={!previewSql || isExporting}
+                  className="h-6 px-2 text-xs"
+                >
+                  <Download className="h-3 w-3 mr-1" />
+                  {t("sql.export")}
+                </Button>
               </div>
               <div className="flex-1 overflow-auto min-h-0">
                 {previewSql ? (

@@ -14,6 +14,7 @@
     "core:app:allow-name",
     "opener:default",
     "log:default",
-    "updater:default"
+    "updater:default",
+    "dialog:default"
   ]
 }
