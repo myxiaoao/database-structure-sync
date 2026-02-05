@@ -71,6 +71,8 @@
     "execute": "执行同步",
     "selectAll": "全选",
     "deselectAll": "全不选",
+    "expandAll": "展开全部",
+    "collapseAll": "收起全部",
     "noChanges": "未发现结构差异",
     "changes": "项差异"
   },

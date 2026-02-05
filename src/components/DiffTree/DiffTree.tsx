@@ -1,16 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  ChevronDown,
-  ChevronRight,
-  Table,
-  Plus,
-  Minus,
-  Edit,
-  Key,
-  Link,
-  Fingerprint,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, Table, Edit, Key, Link, Fingerprint } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DiffItem } from "@/lib/api";
@@ -20,6 +10,8 @@ interface DiffTreeProps {
   selectedItems: Set<string>;
   onSelectionChange: (selected: Set<string>) => void;
   onItemClick?: (item: DiffItem) => void;
+  expandedTables: Set<string>;
+  onExpandedChange: (expanded: Set<string>) => void;
 }
 
 interface GroupedDiff {
@@ -28,23 +20,32 @@ interface GroupedDiff {
 }
 
 function getDiffIcon(diffType: string): React.ReactNode {
-  if (diffType.includes("Added")) return <Plus className="h-4 w-4 text-green-500" />;
-  if (diffType.includes("Removed")) return <Minus className="h-4 w-4 text-red-500" />;
-  if (diffType.includes("Modified")) return <Edit className="h-4 w-4 text-yellow-500" />;
-  return <Table className="h-4 w-4" />;
-}
+  // 根据操作类型获取颜色
+  const colorClass = diffType.includes("Added")
+    ? "text-green-500"
+    : diffType.includes("Removed")
+      ? "text-red-500"
+      : diffType.includes("Modified")
+        ? "text-amber-500"
+        : "text-muted-foreground";
 
-const typeIconMap: Record<string, React.ReactNode> = {
-  Table: <Table className="h-4 w-4 text-muted-foreground" />,
-  Column: <Edit className="h-4 w-4 text-muted-foreground" />,
-  Index: <Key className="h-4 w-4 text-muted-foreground" />,
-  ForeignKey: <Link className="h-4 w-4 text-muted-foreground" />,
-  UniqueConstraint: <Fingerprint className="h-4 w-4 text-muted-foreground" />,
-};
-
-function getTypeIcon(diffType: string): React.ReactNode {
+  // 根据对象类型获取图标
   const prefix = diffType.replace(/(Added|Removed|Modified)$/, "");
-  return typeIconMap[prefix] || typeIconMap.Table;
+
+  switch (prefix) {
+    case "Table":
+      return <Table className={`h-3 w-3 ${colorClass}`} />;
+    case "Column":
+      return <Edit className={`h-3 w-3 ${colorClass}`} />;
+    case "Index":
+      return <Key className={`h-3 w-3 ${colorClass}`} />;
+    case "ForeignKey":
+      return <Link className={`h-3 w-3 ${colorClass}`} />;
+    case "UniqueConstraint":
+      return <Fingerprint className={`h-3 w-3 ${colorClass}`} />;
+    default:
+      return <Table className={`h-3 w-3 ${colorClass}`} />;
+  }
 }
 
 function getDiffLabel(diffType: string, t: (key: string) => string): string {
@@ -80,7 +81,7 @@ function DiffItemRow({
 
   return (
     <div
-      className="flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer hover:bg-muted ml-6"
+      className="flex items-center gap-1.5 py-1 px-2 rounded cursor-pointer hover:bg-muted/80 ml-5 text-xs"
       onClick={onClick}
     >
       <Checkbox
@@ -90,11 +91,11 @@ function DiffItemRow({
           e.stopPropagation();
           onToggle();
         }}
+        className="h-3.5 w-3.5"
       />
       {getDiffIcon(item.diff_type)}
-      {getTypeIcon(item.diff_type)}
-      <span className="flex-1 text-sm truncate">{item.object_name || item.table_name}</span>
-      <span className="text-xs text-muted-foreground">{getDiffLabel(item.diff_type, t)}</span>
+      <span className="flex-1 truncate">{item.object_name || item.table_name}</span>
+      <span className="text-[10px] text-muted-foreground">{getDiffLabel(item.diff_type, t)}</span>
     </div>
   );
 }
@@ -139,14 +140,18 @@ function TableGroup({
   };
 
   return (
-    <div className="mb-1">
+    <div className="mb-0.5">
       <div
-        className="flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer hover:bg-muted"
+        className="flex items-center gap-1.5 py-1 px-2 rounded cursor-pointer hover:bg-muted/80"
         onClick={onToggleExpand}
       >
-        <button onClick={(e) => e.stopPropagation()} className="p-0.5">
-          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </button>
+        <span className="p-0">
+          {isExpanded ? (
+            <ChevronDown className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5" />
+          )}
+        </span>
         <Checkbox
           checked={allSelected}
           ref={(el) => {
@@ -156,15 +161,16 @@ function TableGroup({
           }}
           onCheckedChange={() => {}}
           onClick={handleGroupToggle}
+          className="h-3.5 w-3.5"
         />
-        <Table className="h-4 w-4 text-muted-foreground" />
-        <span className="flex-1 text-sm font-medium truncate">{group.tableName}</span>
-        <span className="text-xs text-muted-foreground">
-          {group.items.length} change{group.items.length > 1 ? "s" : ""}
+        <Table className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="flex-1 text-xs font-medium truncate">{group.tableName}</span>
+        <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-muted rounded">
+          {group.items.length}
         </span>
       </div>
       {isExpanded && (
-        <div>
+        <div className="border-l border-muted ml-2">
           {group.items.map((item) => (
             <DiffItemRow
               key={item.id}
@@ -180,9 +186,14 @@ function TableGroup({
   );
 }
 
-export function DiffTree({ items, selectedItems, onSelectionChange, onItemClick }: DiffTreeProps) {
-  const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
-
+export function DiffTree({
+  items,
+  selectedItems,
+  onSelectionChange,
+  onItemClick,
+  expandedTables,
+  onExpandedChange,
+}: DiffTreeProps) {
   // Group items by table name
   const groupedItems = useMemo(() => {
     const groups: Map<string, DiffItem[]> = new Map();
@@ -200,20 +211,18 @@ export function DiffTree({ items, selectedItems, onSelectionChange, onItemClick 
   }, [items]);
 
   const handleToggleExpand = (tableName: string) => {
-    setExpandedTables((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(tableName)) {
-        newSet.delete(tableName);
-      } else {
-        newSet.add(tableName);
-      }
-      return newSet;
-    });
+    const newSet = new Set(expandedTables);
+    if (newSet.has(tableName)) {
+      newSet.delete(tableName);
+    } else {
+      newSet.add(tableName);
+    }
+    onExpandedChange(newSet);
   };
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-2">
+      <div className="p-1.5">
         {groupedItems.map((group) => (
           <TableGroup
             key={group.tableName}

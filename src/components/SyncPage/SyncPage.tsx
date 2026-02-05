@@ -1,6 +1,7 @@
+import { useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -10,7 +11,6 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { DiffTree } from "@/components/DiffTree";
-import { SqlPreview } from "@/components/SqlPreview";
 import { useSync } from "@/hooks";
 import type { Connection } from "@/types";
 
@@ -39,7 +39,6 @@ export function SyncPage({ connections }: SyncPageProps) {
     diffResult,
     selectedItems,
     setSelectedItems,
-    selectedItem,
     setSelectedItem,
     selectedSql,
     canCompare,
@@ -51,127 +50,197 @@ export function SyncPage({ connections }: SyncPageProps) {
     isExecuting,
   } = useSync({ connections });
 
-  const previewSql = selectedItem?.sql || selectedSql;
+  // 展开状态管理
+  const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
+
+  // 获取所有表名用于全部展开
+  const allTableNames = useMemo(() => {
+    if (!diffResult) return [];
+    const names = new Set<string>();
+    diffResult.items.forEach((item) => names.add(item.table_name));
+    return Array.from(names);
+  }, [diffResult]);
+
+  const handleExpandAll = useCallback(() => {
+    setExpandedTables(new Set(allTableNames));
+  }, [allTableNames]);
+
+  const handleCollapseAll = useCallback(() => {
+    setExpandedTables(new Set());
+  }, []);
+
+  // 只显示勾选项的 SQL，没有勾选则显示空
+  const previewSql = selectedSql;
 
   return (
-    <div className="h-full flex flex-col gap-4">
-      {/* Database Selectors */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="flex items-end gap-4">
-            <div className="flex-1 space-y-2">
-              <label className="text-sm font-medium">{t("sync.source")}</label>
-              <div className="flex gap-2">
-                <Select value={sourceId} onValueChange={setSourceId}>
-                  <SelectTrigger className={sourceNeedsDbSelect ? "flex-1" : ""}>
-                    <SelectValue placeholder={t("sync.selectConnection")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {connections.map((conn) => (
-                      <SelectItem key={conn.id} value={conn.id}>
-                        {conn.name} ({conn.db_type})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {sourceNeedsDbSelect && (
-                  <Select value={sourceDb} onValueChange={setSourceDb} disabled={loadingSourceDbs}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue
-                        placeholder={loadingSourceDbs ? t("common.loading") : t("sync.selectDatabase")}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sourceDatabases.map((db) => (
-                        <SelectItem key={db} value={db}>
-                          {db}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            </div>
-            <div className="flex-1 space-y-2">
-              <label className="text-sm font-medium">{t("sync.target")}</label>
-              <div className="flex gap-2">
-                <Select value={targetId} onValueChange={setTargetId}>
-                  <SelectTrigger className={targetNeedsDbSelect ? "flex-1" : ""}>
-                    <SelectValue placeholder={t("sync.selectConnection")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {connections.map((conn) => (
-                      <SelectItem key={conn.id} value={conn.id}>
-                        {conn.name} ({conn.db_type})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {targetNeedsDbSelect && (
-                  <Select value={targetDb} onValueChange={setTargetDb} disabled={loadingTargetDbs}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue
-                        placeholder={loadingTargetDbs ? t("common.loading") : t("sync.selectDatabase")}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {targetDatabases.map((db) => (
-                        <SelectItem key={db} value={db}>
-                          {db}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            </div>
-            <Button onClick={handleCompare} disabled={!canCompare || isComparing}>
-              {isComparing ? t("common.loading") : t("sync.compare")}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="h-full flex flex-col gap-3">
+      {/* Database Selectors - Two column layout matching diff results */}
+      <div className="grid grid-cols-2 gap-3 shrink-0">
+        {/* Source Database */}
+        <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg border min-w-0">
+          <label className="text-xs font-medium text-muted-foreground whitespace-nowrap shrink-0">
+            {t("sync.source")}
+          </label>
+          <Select value={sourceId} onValueChange={setSourceId}>
+            <SelectTrigger className="h-8 text-sm min-w-0 flex-1">
+              <SelectValue placeholder={t("sync.selectConnection")} />
+            </SelectTrigger>
+            <SelectContent>
+              {connections.map((conn) => (
+                <SelectItem key={conn.id} value={conn.id}>
+                  {conn.name} ({conn.db_type})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {sourceNeedsDbSelect && (
+            <Select value={sourceDb} onValueChange={setSourceDb} disabled={loadingSourceDbs}>
+              <SelectTrigger className="h-8 text-sm min-w-0 flex-1">
+                <SelectValue
+                  placeholder={loadingSourceDbs ? t("common.loading") : t("sync.selectDatabase")}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {sourceDatabases.map((db) => (
+                  <SelectItem key={db} value={db}>
+                    {db}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
 
+        {/* Target Database + Compare Button */}
+        <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg border min-w-0">
+          <label className="text-xs font-medium text-muted-foreground whitespace-nowrap shrink-0">
+            {t("sync.target")}
+          </label>
+          <Select value={targetId} onValueChange={setTargetId}>
+            <SelectTrigger className="h-8 text-sm min-w-0 flex-1">
+              <SelectValue placeholder={t("sync.selectConnection")} />
+            </SelectTrigger>
+            <SelectContent>
+              {connections.map((conn) => (
+                <SelectItem key={conn.id} value={conn.id}>
+                  {conn.name} ({conn.db_type})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {targetNeedsDbSelect && (
+            <Select value={targetDb} onValueChange={setTargetDb} disabled={loadingTargetDbs}>
+              <SelectTrigger className="h-8 text-sm min-w-0 flex-1">
+                <SelectValue
+                  placeholder={loadingTargetDbs ? t("common.loading") : t("sync.selectDatabase")}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {targetDatabases.map((db) => (
+                  <SelectItem key={db} value={db}>
+                    {db}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button
+            onClick={handleCompare}
+            disabled={!canCompare || isComparing}
+            size="sm"
+            className="h-8 shrink-0"
+          >
+            {isComparing ? t("common.loading") : t("sync.compare")}
+          </Button>
+        </div>
+      </div>
 
       {/* Diff Results */}
       {diffResult && (
-        <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
+        <div className="flex-1 grid grid-cols-2 gap-3 min-h-0">
           {/* Left: Diff Tree */}
-          <Card className="flex flex-col">
-            <CardHeader className="py-3 px-4 flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-sm">
+          <Card className="flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-3 h-9 border-b bg-muted/30">
+              <span className="text-xs font-medium">
                 {diffResult.items.length} {t("sync.changes")}
-              </CardTitle>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handleSelectAll}>
+              </span>
+              <div className="flex gap-1">
+                <Separator orientation="vertical" className="h-4" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleExpandAll}
+                  className="h-6 px-2 text-xs"
+                >
+                  {t("sync.expandAll")}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCollapseAll}
+                  className="h-6 px-2 text-xs"
+                >
+                  {t("sync.collapseAll")}
+                </Button>
+                <Separator orientation="vertical" className="h-4" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSelectAll}
+                  className="h-6 px-2 text-xs"
+                >
                   {t("sync.selectAll")}
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleDeselectAll}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeselectAll}
+                  className="h-6 px-2 text-xs"
+                >
                   {t("sync.deselectAll")}
                 </Button>
               </div>
-            </CardHeader>
-            <Separator />
-            <CardContent className="flex-1 p-0 overflow-hidden">
+            </div>
+            <div className="flex-1 overflow-hidden">
               {diffResult.items.length > 0 ? (
                 <DiffTree
                   items={diffResult.items}
                   selectedItems={selectedItems}
                   onSelectionChange={setSelectedItems}
                   onItemClick={setSelectedItem}
+                  expandedTables={expandedTables}
+                  onExpandedChange={setExpandedTables}
                 />
               ) : (
-                <p className="p-4 text-sm text-muted-foreground">{t("sync.noChanges")}</p>
+                <p className="p-3 text-sm text-muted-foreground">{t("sync.noChanges")}</p>
               )}
-            </CardContent>
+            </div>
           </Card>
 
           {/* Right: SQL Preview */}
-          <div className="flex flex-col gap-4">
-            <div className="flex-1 min-h-0">
-              <SqlPreview sql={previewSql} />
-            </div>
-            <Button onClick={handleExecute} disabled={!selectedSql || isExecuting} className="w-full">
+          <div className="flex flex-col gap-2 min-h-0">
+            <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
+              <div className="flex items-center justify-between px-3 h-9 border-b bg-muted/30 shrink-0">
+                <span className="text-xs font-medium">{t("sql.preview")}</span>
+              </div>
+              <div className="flex-1 overflow-auto min-h-0">
+                {previewSql ? (
+                  <pre className="p-3 text-xs font-mono whitespace-pre-wrap break-all bg-muted/20">
+                    {previewSql}
+                  </pre>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                    {t("sql.empty")}
+                  </div>
+                )}
+              </div>
+            </Card>
+            <Button
+              onClick={handleExecute}
+              disabled={!selectedSql || isExecuting}
+              size="sm"
+              className="h-8 shrink-0"
+            >
               {isExecuting ? t("common.loading") : t("sync.execute")}
             </Button>
           </div>

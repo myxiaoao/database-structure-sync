@@ -147,33 +147,46 @@ export function ConnectionForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{connection ? t("connection.edit") : t("connection.new")}</DialogTitle>
+      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader className="pb-2">
+          <DialogTitle className="text-base">
+            {connection ? t("connection.edit") : t("connection.new")}
+          </DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="basic">{t("connection.basicTab")}</TabsTrigger>
-            <TabsTrigger value="ssh">{t("connection.sshTab")}</TabsTrigger>
-            <TabsTrigger value="ssl">{t("connection.sslTab")}</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 h-8">
+            <TabsTrigger value="basic" className="text-xs">
+              {t("connection.basicTab")}
+            </TabsTrigger>
+            <TabsTrigger value="ssh" className="text-xs">
+              {t("connection.sshTab")}
+            </TabsTrigger>
+            <TabsTrigger value="ssl" className="text-xs">
+              {t("connection.sslTab")}
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="basic" className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">{t("connection.name")}</Label>
+          <TabsContent value="basic" className="space-y-3 mt-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="name" className="text-xs">
+                  {t("connection.name")}
+                </Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => updateField("name", e.target.value)}
                   placeholder={t("connection.namePlaceholder")}
+                  className="h-8 text-sm"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="db_type">{t("connection.dbType")}</Label>
+              <div className="space-y-1">
+                <Label htmlFor="db_type" className="text-xs">
+                  {t("connection.dbType")}
+                </Label>
                 <Select value={formData.db_type} onValueChange={handleDbTypeChange}>
-                  <SelectTrigger>
+                  <SelectTrigger size="sm" className="text-sm w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -185,107 +198,134 @@ export function ConnectionForm({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="host">{t("connection.host")}</Label>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2 space-y-1">
+                <Label htmlFor="host" className="text-xs">
+                  {t("connection.host")}
+                </Label>
                 <Input
                   id="host"
                   value={formData.host}
                   onChange={(e) => updateField("host", e.target.value)}
                   placeholder="localhost"
+                  className="h-8 text-sm"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="port">{t("connection.port")}</Label>
+              <div className="space-y-1">
+                <Label htmlFor="port" className="text-xs">
+                  {t("connection.port")}
+                </Label>
                 <Input
                   id="port"
                   type="number"
                   value={formData.port}
                   onChange={(e) => updateField("port", parseInt(e.target.value) || 0)}
+                  className="h-8 text-sm"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="username">{t("connection.username")}</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="username" className="text-xs">
+                  {t("connection.username")}
+                </Label>
                 <Input
                   id="username"
                   value={formData.username}
                   onChange={(e) => updateField("username", e.target.value)}
+                  className="h-8 text-sm"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">{t("connection.password")}</Label>
+              <div className="space-y-1">
+                <Label htmlFor="password" className="text-xs">
+                  {t("connection.password")}
+                </Label>
                 <Input
                   id="password"
                   type="password"
                   value={formData.password}
                   onChange={(e) => updateField("password", e.target.value)}
+                  className="h-8 text-sm"
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="database">{t("connection.database")}</Label>
+            <div className="space-y-1">
+              <Label htmlFor="database" className="text-xs">
+                {t("connection.database")}
+              </Label>
               <Input
                 id="database"
                 value={formData.database}
                 onChange={(e) => updateField("database", e.target.value)}
+                className="h-8 text-sm"
               />
             </div>
           </TabsContent>
 
-          <TabsContent value="ssh" className="space-y-4 mt-4">
+          <TabsContent value="ssh" className="space-y-3 mt-3">
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="ssh_enabled"
                 checked={formData.ssh_enabled}
                 onCheckedChange={(checked) => updateField("ssh_enabled", checked === true)}
+                className="h-3.5 w-3.5"
               />
-              <Label htmlFor="ssh_enabled">{t("connection.sshEnabled")}</Label>
+              <Label htmlFor="ssh_enabled" className="text-xs">
+                {t("connection.sshEnabled")}
+              </Label>
             </div>
 
             {formData.ssh_enabled && (
               <>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="col-span-2 space-y-2">
-                    <Label htmlFor="ssh_host">{t("connection.sshHost")}</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2 space-y-1">
+                    <Label htmlFor="ssh_host" className="text-xs">
+                      {t("connection.sshHost")}
+                    </Label>
                     <Input
                       id="ssh_host"
                       value={formData.ssh_host || ""}
                       onChange={(e) => updateField("ssh_host", e.target.value)}
+                      className="h-8 text-sm"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ssh_port">{t("connection.sshPort")}</Label>
+                  <div className="space-y-1">
+                    <Label htmlFor="ssh_port" className="text-xs">
+                      {t("connection.sshPort")}
+                    </Label>
                     <Input
                       id="ssh_port"
                       type="number"
                       value={formData.ssh_port || 22}
                       onChange={(e) => updateField("ssh_port", parseInt(e.target.value) || 22)}
+                      className="h-8 text-sm"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="ssh_username">{t("connection.sshUsername")}</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="ssh_username" className="text-xs">
+                    {t("connection.sshUsername")}
+                  </Label>
                   <Input
                     id="ssh_username"
                     value={formData.ssh_username || ""}
                     onChange={(e) => updateField("ssh_username", e.target.value)}
+                    className="h-8 text-sm"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>{t("connection.sshAuthMethod")}</Label>
+                <div className="space-y-1">
+                  <Label className="text-xs">{t("connection.sshAuthMethod")}</Label>
                   <Select
                     value={formData.ssh_auth_method || "Password"}
                     onValueChange={(value: "Password" | "PrivateKey") =>
                       updateField("ssh_auth_method", value)
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger size="sm" className="text-sm w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -297,8 +337,8 @@ export function ConnectionForm({
 
                 {formData.ssh_auth_method === "PrivateKey" ? (
                   <>
-                    <div className="space-y-2">
-                      <Label htmlFor="ssh_private_key_path">
+                    <div className="space-y-1">
+                      <Label htmlFor="ssh_private_key_path" className="text-xs">
                         {t("connection.sshPrivateKeyPath")}
                       </Label>
                       <Input
@@ -306,26 +346,33 @@ export function ConnectionForm({
                         value={formData.ssh_private_key_path || ""}
                         onChange={(e) => updateField("ssh_private_key_path", e.target.value)}
                         placeholder="~/.ssh/id_rsa"
+                        className="h-8 text-sm"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="ssh_passphrase">{t("connection.sshPassphrase")}</Label>
+                    <div className="space-y-1">
+                      <Label htmlFor="ssh_passphrase" className="text-xs">
+                        {t("connection.sshPassphrase")}
+                      </Label>
                       <Input
                         id="ssh_passphrase"
                         type="password"
                         value={formData.ssh_passphrase || ""}
                         onChange={(e) => updateField("ssh_passphrase", e.target.value)}
+                        className="h-8 text-sm"
                       />
                     </div>
                   </>
                 ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="ssh_password">{t("connection.sshPasswordField")}</Label>
+                  <div className="space-y-1">
+                    <Label htmlFor="ssh_password" className="text-xs">
+                      {t("connection.sshPasswordField")}
+                    </Label>
                     <Input
                       id="ssh_password"
                       type="password"
                       value={formData.ssh_password || ""}
                       onChange={(e) => updateField("ssh_password", e.target.value)}
+                      className="h-8 text-sm"
                     />
                   </div>
                 )}
@@ -333,43 +380,55 @@ export function ConnectionForm({
             )}
           </TabsContent>
 
-          <TabsContent value="ssl" className="space-y-4 mt-4">
+          <TabsContent value="ssl" className="space-y-3 mt-3">
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="ssl_enabled"
                 checked={formData.ssl_enabled}
                 onCheckedChange={(checked) => updateField("ssl_enabled", checked === true)}
+                className="h-3.5 w-3.5"
               />
-              <Label htmlFor="ssl_enabled">{t("connection.sslEnabled")}</Label>
+              <Label htmlFor="ssl_enabled" className="text-xs">
+                {t("connection.sslEnabled")}
+              </Label>
             </div>
 
             {formData.ssl_enabled && (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="ssl_ca_cert_path">{t("connection.sslCaCert")}</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="ssl_ca_cert_path" className="text-xs">
+                    {t("connection.sslCaCert")}
+                  </Label>
                   <Input
                     id="ssl_ca_cert_path"
                     value={formData.ssl_ca_cert_path || ""}
                     onChange={(e) => updateField("ssl_ca_cert_path", e.target.value)}
                     placeholder="/path/to/ca-cert.pem"
+                    className="h-8 text-sm"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ssl_client_cert_path">{t("connection.sslClientCert")}</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="ssl_client_cert_path" className="text-xs">
+                    {t("connection.sslClientCert")}
+                  </Label>
                   <Input
                     id="ssl_client_cert_path"
                     value={formData.ssl_client_cert_path || ""}
                     onChange={(e) => updateField("ssl_client_cert_path", e.target.value)}
                     placeholder="/path/to/client-cert.pem"
+                    className="h-8 text-sm"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ssl_client_key_path">{t("connection.sslClientKey")}</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="ssl_client_key_path" className="text-xs">
+                    {t("connection.sslClientKey")}
+                  </Label>
                   <Input
                     id="ssl_client_key_path"
                     value={formData.ssl_client_key_path || ""}
                     onChange={(e) => updateField("ssl_client_key_path", e.target.value)}
                     placeholder="/path/to/client-key.pem"
+                    className="h-8 text-sm"
                   />
                 </div>
                 <div className="flex items-center space-x-2">
@@ -379,8 +438,9 @@ export function ConnectionForm({
                     onCheckedChange={(checked) =>
                       updateField("ssl_verify_server_cert", checked === true)
                     }
+                    className="h-3.5 w-3.5"
                   />
-                  <Label htmlFor="ssl_verify_server_cert">
+                  <Label htmlFor="ssl_verify_server_cert" className="text-xs">
                     {t("connection.sslVerifyServerCert")}
                   </Label>
                 </div>
@@ -391,7 +451,7 @@ export function ConnectionForm({
 
         {testResult && (
           <div
-            className={`p-3 rounded-md text-sm ${
+            className={`p-2 rounded text-xs ${
               testResult.success
                 ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
                 : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
@@ -401,11 +461,17 @@ export function ConnectionForm({
           </div>
         )}
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={handleTest} disabled={testing || loading}>
+        <DialogFooter className="gap-2 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleTest}
+            disabled={testing || loading}
+            className="h-8"
+          >
             {testing ? t("connection.testing") : t("connection.test")}
           </Button>
-          <Button onClick={handleSave} disabled={loading || testing}>
+          <Button size="sm" onClick={handleSave} disabled={loading || testing} className="h-8">
             {loading ? t("connection.saving") : t("connection.save")}
           </Button>
         </DialogFooter>
