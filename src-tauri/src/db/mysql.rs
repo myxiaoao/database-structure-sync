@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use sqlx::{mysql::MySqlPoolOptions, MySql, Pool};
+use sqlx::{MySql, Pool, mysql::MySqlPoolOptions};
 
 use crate::db::traits::{SchemaReader, SqlGenerator};
 use crate::models::*;
@@ -110,7 +110,15 @@ impl SchemaReader for MySqlDriver {
 
 impl MySqlDriver {
     async fn get_columns(&self, table_name: &str) -> Result<Vec<Column>> {
-        let rows: Vec<(String, String, String, Option<String>, String, Option<String>, u32)> = sqlx::query_as(
+        let rows: Vec<(
+            String,
+            String,
+            String,
+            Option<String>,
+            String,
+            Option<String>,
+            u32,
+        )> = sqlx::query_as(
             r#"
             SELECT
                 CAST(column_name AS CHAR),
@@ -123,23 +131,30 @@ impl MySqlDriver {
             FROM information_schema.columns
             WHERE table_schema = DATABASE() AND table_name = ?
             ORDER BY ordinal_position
-            "#
+            "#,
         )
         .bind(table_name)
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|(name, data_type, nullable, default, extra, comment, pos)| {
-            Column {
-                name,
-                data_type,
-                nullable: nullable == "YES",
-                default_value: default,
-                auto_increment: extra.contains("auto_increment"),
-                comment: if comment.as_ref().map(|c| c.is_empty()).unwrap_or(true) { None } else { comment },
-                ordinal_position: pos,
-            }
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(
+                |(name, data_type, nullable, default, extra, comment, pos)| Column {
+                    name,
+                    data_type,
+                    nullable: nullable == "YES",
+                    default_value: default,
+                    auto_increment: extra.contains("auto_increment"),
+                    comment: if comment.as_ref().map(|c| c.is_empty()).unwrap_or(true) {
+                        None
+                    } else {
+                        comment
+                    },
+                    ordinal_position: pos,
+                },
+            )
+            .collect())
     }
 
     async fn get_primary_key(&self, table_name: &str) -> Result<Option<PrimaryKey>> {
@@ -149,7 +164,7 @@ impl MySqlDriver {
             FROM information_schema.key_column_usage
             WHERE table_schema = DATABASE() AND table_name = ? AND constraint_name = 'PRIMARY'
             ORDER BY ordinal_position
-            "#
+            "#,
         )
         .bind(table_name)
         .fetch_all(&self.pool)
@@ -160,7 +175,10 @@ impl MySqlDriver {
         }
 
         let columns: Vec<String> = rows.into_iter().map(|(_, col)| col).collect();
-        Ok(Some(PrimaryKey { name: Some("PRIMARY".to_string()), columns }))
+        Ok(Some(PrimaryKey {
+            name: Some("PRIMARY".to_string()),
+            columns,
+        }))
     }
 
     async fn get_indexes(&self, table_name: &str) -> Result<Vec<Index>> {
@@ -176,15 +194,24 @@ impl MySqlDriver {
         .fetch_all(&self.pool)
         .await?;
 
-        let mut indexes_map: std::collections::HashMap<String, (bool, String, Vec<String>)> = std::collections::HashMap::new();
+        let mut indexes_map: std::collections::HashMap<String, (bool, String, Vec<String>)> =
+            std::collections::HashMap::new();
         for (name, non_unique, column, idx_type) in rows {
-            let entry = indexes_map.entry(name).or_insert((non_unique == 0, idx_type, Vec::new()));
+            let entry = indexes_map
+                .entry(name)
+                .or_insert((non_unique == 0, idx_type, Vec::new()));
             entry.2.push(column);
         }
 
-        Ok(indexes_map.into_iter().map(|(name, (unique, idx_type, columns))| {
-            Index { name, columns, unique, index_type: idx_type }
-        }).collect())
+        Ok(indexes_map
+            .into_iter()
+            .map(|(name, (unique, idx_type, columns))| Index {
+                name,
+                columns,
+                unique,
+                index_type: idx_type,
+            })
+            .collect())
     }
 
     async fn get_foreign_keys(&self, table_name: &str) -> Result<Vec<ForeignKey>> {
@@ -208,16 +235,36 @@ impl MySqlDriver {
         .fetch_all(&self.pool)
         .await?;
 
-        let mut fks_map: std::collections::HashMap<String, (String, String, Vec<String>, Vec<String>, String, String)> = std::collections::HashMap::new();
+        let mut fks_map: std::collections::HashMap<
+            String,
+            (String, String, Vec<String>, Vec<String>, String, String),
+        > = std::collections::HashMap::new();
         for (name, col, ref_table, ref_col, on_delete, on_update) in rows {
-            let entry = fks_map.entry(name.clone()).or_insert((name, ref_table, Vec::new(), Vec::new(), on_delete, on_update));
+            let entry = fks_map.entry(name.clone()).or_insert((
+                name,
+                ref_table,
+                Vec::new(),
+                Vec::new(),
+                on_delete,
+                on_update,
+            ));
             entry.2.push(col);
             entry.3.push(ref_col);
         }
 
-        Ok(fks_map.into_iter().map(|(_, (name, ref_table, columns, ref_columns, on_delete, on_update))| {
-            ForeignKey { name, columns, ref_table, ref_columns, on_delete, on_update }
-        }).collect())
+        Ok(fks_map
+            .into_iter()
+            .map(
+                |(_, (name, ref_table, columns, ref_columns, on_delete, on_update))| ForeignKey {
+                    name,
+                    columns,
+                    ref_table,
+                    ref_columns,
+                    on_delete,
+                    on_update,
+                },
+            )
+            .collect())
     }
 
     async fn get_unique_constraints(&self, table_name: &str) -> Result<Vec<UniqueConstraint>> {
@@ -235,14 +282,16 @@ impl MySqlDriver {
         .fetch_all(&self.pool)
         .await?;
 
-        let mut ucs_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        let mut ucs_map: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
         for (name, col) in rows {
             ucs_map.entry(name).or_default().push(col);
         }
 
-        Ok(ucs_map.into_iter().map(|(name, columns)| {
-            UniqueConstraint { name, columns }
-        }).collect())
+        Ok(ucs_map
+            .into_iter()
+            .map(|(name, columns)| UniqueConstraint { name, columns })
+            .collect())
     }
 }
 
@@ -274,24 +323,53 @@ impl SqlGenerator for MySqlDriver {
         }
 
         if let Some(pk) = &table.primary_key {
-            let cols: Vec<String> = pk.columns.iter().map(|c| self.quote_identifier(c)).collect();
+            let cols: Vec<String> = pk
+                .columns
+                .iter()
+                .map(|c| self.quote_identifier(c))
+                .collect();
             parts.push(format!("  PRIMARY KEY ({})", cols.join(", ")));
         }
 
         for idx in &table.indexes {
-            let cols: Vec<String> = idx.columns.iter().map(|c| self.quote_identifier(c)).collect();
+            let cols: Vec<String> = idx
+                .columns
+                .iter()
+                .map(|c| self.quote_identifier(c))
+                .collect();
             let idx_type = if idx.unique { "UNIQUE INDEX" } else { "INDEX" };
-            parts.push(format!("  {} {} ({})", idx_type, self.quote_identifier(&idx.name), cols.join(", ")));
+            parts.push(format!(
+                "  {} {} ({})",
+                idx_type,
+                self.quote_identifier(&idx.name),
+                cols.join(", ")
+            ));
         }
 
         for uc in &table.unique_constraints {
-            let cols: Vec<String> = uc.columns.iter().map(|c| self.quote_identifier(c)).collect();
-            parts.push(format!("  CONSTRAINT {} UNIQUE ({})", self.quote_identifier(&uc.name), cols.join(", ")));
+            let cols: Vec<String> = uc
+                .columns
+                .iter()
+                .map(|c| self.quote_identifier(c))
+                .collect();
+            parts.push(format!(
+                "  CONSTRAINT {} UNIQUE ({})",
+                self.quote_identifier(&uc.name),
+                cols.join(", ")
+            ));
         }
 
         for fk in &table.foreign_keys {
-            let cols: Vec<String> = fk.columns.iter().map(|c| self.quote_identifier(c)).collect();
-            let ref_cols: Vec<String> = fk.ref_columns.iter().map(|c| self.quote_identifier(c)).collect();
+            let cols: Vec<String> = fk
+                .columns
+                .iter()
+                .map(|c| self.quote_identifier(c))
+                .collect();
+            let ref_cols: Vec<String> = fk
+                .ref_columns
+                .iter()
+                .map(|c| self.quote_identifier(c))
+                .collect();
             parts.push(format!(
                 "  CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {} ({}) ON DELETE {} ON UPDATE {}",
                 self.quote_identifier(&fk.name),
@@ -367,8 +445,16 @@ impl SqlGenerator for MySqlDriver {
     }
 
     fn generate_add_index(&self, table: &str, index: &Index) -> String {
-        let cols: Vec<String> = index.columns.iter().map(|c| self.quote_identifier(c)).collect();
-        let idx_type = if index.unique { "UNIQUE INDEX" } else { "INDEX" };
+        let cols: Vec<String> = index
+            .columns
+            .iter()
+            .map(|c| self.quote_identifier(c))
+            .collect();
+        let idx_type = if index.unique {
+            "UNIQUE INDEX"
+        } else {
+            "INDEX"
+        };
         format!(
             "CREATE {} {} ON {} ({});",
             idx_type,
@@ -387,8 +473,16 @@ impl SqlGenerator for MySqlDriver {
     }
 
     fn generate_add_foreign_key(&self, table: &str, fk: &ForeignKey) -> String {
-        let cols: Vec<String> = fk.columns.iter().map(|c| self.quote_identifier(c)).collect();
-        let ref_cols: Vec<String> = fk.ref_columns.iter().map(|c| self.quote_identifier(c)).collect();
+        let cols: Vec<String> = fk
+            .columns
+            .iter()
+            .map(|c| self.quote_identifier(c))
+            .collect();
+        let ref_cols: Vec<String> = fk
+            .ref_columns
+            .iter()
+            .map(|c| self.quote_identifier(c))
+            .collect();
         format!(
             "ALTER TABLE {} ADD CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {} ({}) ON DELETE {} ON UPDATE {};",
             self.quote_identifier(table),
@@ -410,7 +504,11 @@ impl SqlGenerator for MySqlDriver {
     }
 
     fn generate_add_unique(&self, table: &str, uc: &UniqueConstraint) -> String {
-        let cols: Vec<String> = uc.columns.iter().map(|c| self.quote_identifier(c)).collect();
+        let cols: Vec<String> = uc
+            .columns
+            .iter()
+            .map(|c| self.quote_identifier(c))
+            .collect();
         format!(
             "ALTER TABLE {} ADD CONSTRAINT {} UNIQUE ({});",
             self.quote_identifier(table),

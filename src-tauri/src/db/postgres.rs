@@ -1,6 +1,6 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::{PgPool, postgres::PgPoolOptions};
 
 use crate::db::traits::{SchemaReader, SqlGenerator};
 use crate::models::*;
@@ -126,18 +126,24 @@ impl PostgresDriver {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|(name, data_type, nullable, default, pos)| {
-            let auto_increment = default.as_ref().map(|d| d.starts_with("nextval(")).unwrap_or(false);
-            Column {
-                name,
-                data_type,
-                nullable: nullable == "YES",
-                default_value: if auto_increment { None } else { default },
-                auto_increment,
-                comment: None,
-                ordinal_position: pos as u32,
-            }
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|(name, data_type, nullable, default, pos)| {
+                let auto_increment = default
+                    .as_ref()
+                    .map(|d| d.starts_with("nextval("))
+                    .unwrap_or(false);
+                Column {
+                    name,
+                    data_type,
+                    nullable: nullable == "YES",
+                    default_value: if auto_increment { None } else { default },
+                    auto_increment,
+                    comment: None,
+                    ordinal_position: pos as u32,
+                }
+            })
+            .collect())
     }
 
     async fn get_primary_key(&self, table_name: &str) -> Result<Option<PrimaryKey>> {
@@ -180,21 +186,30 @@ impl PostgresDriver {
             WHERE t.relname = $1 AND t.relnamespace = 'public'::regnamespace
                 AND NOT ix.indisprimary
             ORDER BY i.relname, array_position(ix.indkey, a.attnum)
-            "#
+            "#,
         )
         .bind(table_name)
         .fetch_all(&self.pool)
         .await?;
 
-        let mut indexes_map: std::collections::HashMap<String, (bool, String, Vec<String>)> = std::collections::HashMap::new();
+        let mut indexes_map: std::collections::HashMap<String, (bool, String, Vec<String>)> =
+            std::collections::HashMap::new();
         for (name, unique, column, idx_type) in rows {
-            let entry = indexes_map.entry(name).or_insert((unique, idx_type, Vec::new()));
+            let entry = indexes_map
+                .entry(name)
+                .or_insert((unique, idx_type, Vec::new()));
             entry.2.push(column);
         }
 
-        Ok(indexes_map.into_iter().map(|(name, (unique, idx_type, columns))| {
-            Index { name, columns, unique, index_type: idx_type }
-        }).collect())
+        Ok(indexes_map
+            .into_iter()
+            .map(|(name, (unique, idx_type, columns))| Index {
+                name,
+                columns,
+                unique,
+                index_type: idx_type,
+            })
+            .collect())
     }
 
     async fn get_foreign_keys(&self, table_name: &str) -> Result<Vec<ForeignKey>> {
@@ -219,16 +234,35 @@ impl PostgresDriver {
         .fetch_all(&self.pool)
         .await?;
 
-        let mut fks_map: std::collections::HashMap<String, (String, Vec<String>, Vec<String>, String, String)> = std::collections::HashMap::new();
+        let mut fks_map: std::collections::HashMap<
+            String,
+            (String, Vec<String>, Vec<String>, String, String),
+        > = std::collections::HashMap::new();
         for (name, col, ref_table, ref_col, on_delete, on_update) in rows {
-            let entry = fks_map.entry(name).or_insert((ref_table, Vec::new(), Vec::new(), on_delete, on_update));
+            let entry = fks_map.entry(name).or_insert((
+                ref_table,
+                Vec::new(),
+                Vec::new(),
+                on_delete,
+                on_update,
+            ));
             entry.1.push(col);
             entry.2.push(ref_col);
         }
 
-        Ok(fks_map.into_iter().map(|(name, (ref_table, columns, ref_columns, on_delete, on_update))| {
-            ForeignKey { name, columns, ref_table, ref_columns, on_delete, on_update }
-        }).collect())
+        Ok(fks_map
+            .into_iter()
+            .map(
+                |(name, (ref_table, columns, ref_columns, on_delete, on_update))| ForeignKey {
+                    name,
+                    columns,
+                    ref_table,
+                    ref_columns,
+                    on_delete,
+                    on_update,
+                },
+            )
+            .collect())
     }
 
     async fn get_unique_constraints(&self, table_name: &str) -> Result<Vec<UniqueConstraint>> {
@@ -245,14 +279,16 @@ impl PostgresDriver {
         .fetch_all(&self.pool)
         .await?;
 
-        let mut ucs_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        let mut ucs_map: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
         for (name, col) in rows {
             ucs_map.entry(name).or_default().push(col);
         }
 
-        Ok(ucs_map.into_iter().map(|(name, columns)| {
-            UniqueConstraint { name, columns }
-        }).collect())
+        Ok(ucs_map
+            .into_iter()
+            .map(|(name, columns)| UniqueConstraint { name, columns })
+            .collect())
     }
 }
 
@@ -266,7 +302,11 @@ impl SqlGenerator for PostgresDriver {
         let mut parts: Vec<String> = Vec::new();
 
         for col in &table.columns {
-            let data_type = if col.auto_increment { "SERIAL".to_string() } else { col.data_type.clone() };
+            let data_type = if col.auto_increment {
+                "SERIAL".to_string()
+            } else {
+                col.data_type.clone()
+            };
             let mut col_def = format!("  {} {}", self.quote_identifier(&col.name), data_type);
             if !col.nullable && !col.auto_increment {
                 col_def.push_str(" NOT NULL");
@@ -278,23 +318,46 @@ impl SqlGenerator for PostgresDriver {
         }
 
         if let Some(pk) = &table.primary_key {
-            let cols: Vec<String> = pk.columns.iter().map(|c| self.quote_identifier(c)).collect();
+            let cols: Vec<String> = pk
+                .columns
+                .iter()
+                .map(|c| self.quote_identifier(c))
+                .collect();
             parts.push(format!("  PRIMARY KEY ({})", cols.join(", ")));
         }
 
         for uc in &table.unique_constraints {
-            let cols: Vec<String> = uc.columns.iter().map(|c| self.quote_identifier(c)).collect();
-            parts.push(format!("  CONSTRAINT {} UNIQUE ({})", self.quote_identifier(&uc.name), cols.join(", ")));
+            let cols: Vec<String> = uc
+                .columns
+                .iter()
+                .map(|c| self.quote_identifier(c))
+                .collect();
+            parts.push(format!(
+                "  CONSTRAINT {} UNIQUE ({})",
+                self.quote_identifier(&uc.name),
+                cols.join(", ")
+            ));
         }
 
         for fk in &table.foreign_keys {
-            let cols: Vec<String> = fk.columns.iter().map(|c| self.quote_identifier(c)).collect();
-            let ref_cols: Vec<String> = fk.ref_columns.iter().map(|c| self.quote_identifier(c)).collect();
+            let cols: Vec<String> = fk
+                .columns
+                .iter()
+                .map(|c| self.quote_identifier(c))
+                .collect();
+            let ref_cols: Vec<String> = fk
+                .ref_columns
+                .iter()
+                .map(|c| self.quote_identifier(c))
+                .collect();
             parts.push(format!(
                 "  CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {} ({}) ON DELETE {} ON UPDATE {}",
-                self.quote_identifier(&fk.name), cols.join(", "),
-                self.quote_identifier(&fk.ref_table), ref_cols.join(", "),
-                fk.on_delete, fk.on_update
+                self.quote_identifier(&fk.name),
+                cols.join(", "),
+                self.quote_identifier(&fk.ref_table),
+                ref_cols.join(", "),
+                fk.on_delete,
+                fk.on_update
             ));
         }
 
@@ -302,12 +365,18 @@ impl SqlGenerator for PostgresDriver {
         sql.push_str("\n);");
 
         for idx in &table.indexes {
-            let cols: Vec<String> = idx.columns.iter().map(|c| self.quote_identifier(c)).collect();
+            let cols: Vec<String> = idx
+                .columns
+                .iter()
+                .map(|c| self.quote_identifier(c))
+                .collect();
             let idx_type = if idx.unique { "UNIQUE INDEX" } else { "INDEX" };
             sql.push_str(&format!(
                 "\nCREATE {} {} ON {} ({});",
-                idx_type, self.quote_identifier(&idx.name),
-                self.quote_identifier(&table.name), cols.join(", ")
+                idx_type,
+                self.quote_identifier(&idx.name),
+                self.quote_identifier(&table.name),
+                cols.join(", ")
             ));
         }
 
@@ -319,10 +388,16 @@ impl SqlGenerator for PostgresDriver {
     }
 
     fn generate_add_column(&self, table: &str, column: &Column) -> String {
-        let data_type = if column.auto_increment { "SERIAL".to_string() } else { column.data_type.clone() };
+        let data_type = if column.auto_increment {
+            "SERIAL".to_string()
+        } else {
+            column.data_type.clone()
+        };
         let mut sql = format!(
             "ALTER TABLE {} ADD COLUMN {} {}",
-            self.quote_identifier(table), self.quote_identifier(&column.name), data_type
+            self.quote_identifier(table),
+            self.quote_identifier(&column.name),
+            data_type
         );
         if !column.nullable && !column.auto_increment {
             sql.push_str(" NOT NULL");
@@ -335,23 +410,44 @@ impl SqlGenerator for PostgresDriver {
     }
 
     fn generate_drop_column(&self, table: &str, column_name: &str) -> String {
-        format!("ALTER TABLE {} DROP COLUMN {};", self.quote_identifier(table), self.quote_identifier(column_name))
+        format!(
+            "ALTER TABLE {} DROP COLUMN {};",
+            self.quote_identifier(table),
+            self.quote_identifier(column_name)
+        )
     }
 
     fn generate_modify_column(&self, table: &str, column: &Column) -> String {
-        let data_type = if column.auto_increment { "SERIAL".to_string() } else { column.data_type.clone() };
+        let data_type = if column.auto_increment {
+            "SERIAL".to_string()
+        } else {
+            column.data_type.clone()
+        };
         format!(
             "ALTER TABLE {} ALTER COLUMN {} TYPE {};",
-            self.quote_identifier(table), self.quote_identifier(&column.name), data_type
+            self.quote_identifier(table),
+            self.quote_identifier(&column.name),
+            data_type
         )
     }
 
     fn generate_add_index(&self, table: &str, index: &Index) -> String {
-        let cols: Vec<String> = index.columns.iter().map(|c| self.quote_identifier(c)).collect();
-        let idx_type = if index.unique { "UNIQUE INDEX" } else { "INDEX" };
+        let cols: Vec<String> = index
+            .columns
+            .iter()
+            .map(|c| self.quote_identifier(c))
+            .collect();
+        let idx_type = if index.unique {
+            "UNIQUE INDEX"
+        } else {
+            "INDEX"
+        };
         format!(
             "CREATE {} {} ON {} ({});",
-            idx_type, self.quote_identifier(&index.name), self.quote_identifier(table), cols.join(", ")
+            idx_type,
+            self.quote_identifier(&index.name),
+            self.quote_identifier(table),
+            cols.join(", ")
         )
     }
 
@@ -360,29 +456,55 @@ impl SqlGenerator for PostgresDriver {
     }
 
     fn generate_add_foreign_key(&self, table: &str, fk: &ForeignKey) -> String {
-        let cols: Vec<String> = fk.columns.iter().map(|c| self.quote_identifier(c)).collect();
-        let ref_cols: Vec<String> = fk.ref_columns.iter().map(|c| self.quote_identifier(c)).collect();
+        let cols: Vec<String> = fk
+            .columns
+            .iter()
+            .map(|c| self.quote_identifier(c))
+            .collect();
+        let ref_cols: Vec<String> = fk
+            .ref_columns
+            .iter()
+            .map(|c| self.quote_identifier(c))
+            .collect();
         format!(
             "ALTER TABLE {} ADD CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {} ({}) ON DELETE {} ON UPDATE {};",
-            self.quote_identifier(table), self.quote_identifier(&fk.name),
-            cols.join(", "), self.quote_identifier(&fk.ref_table), ref_cols.join(", "),
-            fk.on_delete, fk.on_update
+            self.quote_identifier(table),
+            self.quote_identifier(&fk.name),
+            cols.join(", "),
+            self.quote_identifier(&fk.ref_table),
+            ref_cols.join(", "),
+            fk.on_delete,
+            fk.on_update
         )
     }
 
     fn generate_drop_foreign_key(&self, table: &str, fk_name: &str) -> String {
-        format!("ALTER TABLE {} DROP CONSTRAINT {};", self.quote_identifier(table), self.quote_identifier(fk_name))
+        format!(
+            "ALTER TABLE {} DROP CONSTRAINT {};",
+            self.quote_identifier(table),
+            self.quote_identifier(fk_name)
+        )
     }
 
     fn generate_add_unique(&self, table: &str, uc: &UniqueConstraint) -> String {
-        let cols: Vec<String> = uc.columns.iter().map(|c| self.quote_identifier(c)).collect();
+        let cols: Vec<String> = uc
+            .columns
+            .iter()
+            .map(|c| self.quote_identifier(c))
+            .collect();
         format!(
             "ALTER TABLE {} ADD CONSTRAINT {} UNIQUE ({});",
-            self.quote_identifier(table), self.quote_identifier(&uc.name), cols.join(", ")
+            self.quote_identifier(table),
+            self.quote_identifier(&uc.name),
+            cols.join(", ")
         )
     }
 
     fn generate_drop_unique(&self, table: &str, uc_name: &str) -> String {
-        format!("ALTER TABLE {} DROP CONSTRAINT {};", self.quote_identifier(table), self.quote_identifier(uc_name))
+        format!(
+            "ALTER TABLE {} DROP CONSTRAINT {};",
+            self.quote_identifier(table),
+            self.quote_identifier(uc_name)
+        )
     }
 }

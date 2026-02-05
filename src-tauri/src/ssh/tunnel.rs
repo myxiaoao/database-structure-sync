@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use russh::client;
 use russh_keys::key::PublicKey;
 use std::sync::Arc;
@@ -29,11 +29,7 @@ pub struct SshTunnel {
 }
 
 impl SshTunnel {
-    pub async fn new(
-        ssh_config: &SshConfig,
-        remote_host: &str,
-        remote_port: u16,
-    ) -> Result<Self> {
+    pub async fn new(ssh_config: &SshConfig, remote_host: &str, remote_port: u16) -> Result<Self> {
         let config = Arc::new(client::Config::default());
         let sh = Client;
 

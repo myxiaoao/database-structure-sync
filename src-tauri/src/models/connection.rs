@@ -31,7 +31,9 @@ impl fmt::Display for DbType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SshAuthMethod {
-    Password { password: String },
+    Password {
+        password: String,
+    },
     PrivateKey {
         private_key_path: String,
         passphrase: Option<String>,

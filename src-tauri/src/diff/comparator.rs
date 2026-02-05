@@ -10,8 +10,10 @@ pub fn compare_schemas(
     let mut diffs = Vec::new();
     let mut id_counter = 0;
 
-    let source_map: HashMap<&str, &TableSchema> = source.iter().map(|t| (t.name.as_str(), t)).collect();
-    let target_map: HashMap<&str, &TableSchema> = target.iter().map(|t| (t.name.as_str(), t)).collect();
+    let source_map: HashMap<&str, &TableSchema> =
+        source.iter().map(|t| (t.name.as_str(), t)).collect();
+    let target_map: HashMap<&str, &TableSchema> =
+        target.iter().map(|t| (t.name.as_str(), t)).collect();
 
     // Find added tables (in source but not in target)
     for table in source {
@@ -50,7 +52,13 @@ pub fn compare_schemas(
     // Compare existing tables
     for source_table in source {
         if let Some(target_table) = target_map.get(source_table.name.as_str()) {
-            compare_tables(source_table, target_table, sql_gen, &mut diffs, &mut id_counter);
+            compare_tables(
+                source_table,
+                target_table,
+                sql_gen,
+                &mut diffs,
+                &mut id_counter,
+            );
         }
     }
 
@@ -64,8 +72,16 @@ fn compare_tables(
     diffs: &mut Vec<DiffItem>,
     id_counter: &mut u32,
 ) {
-    let source_cols: HashMap<&str, &Column> = source.columns.iter().map(|c| (c.name.as_str(), c)).collect();
-    let target_cols: HashMap<&str, &Column> = target.columns.iter().map(|c| (c.name.as_str(), c)).collect();
+    let source_cols: HashMap<&str, &Column> = source
+        .columns
+        .iter()
+        .map(|c| (c.name.as_str(), c))
+        .collect();
+    let target_cols: HashMap<&str, &Column> = target
+        .columns
+        .iter()
+        .map(|c| (c.name.as_str(), c))
+        .collect();
 
     // Compare columns
     for col in &source.columns {
@@ -115,8 +131,16 @@ fn compare_tables(
     }
 
     // Compare indexes
-    let source_idx: HashMap<&str, &Index> = source.indexes.iter().map(|i| (i.name.as_str(), i)).collect();
-    let target_idx: HashMap<&str, &Index> = target.indexes.iter().map(|i| (i.name.as_str(), i)).collect();
+    let source_idx: HashMap<&str, &Index> = source
+        .indexes
+        .iter()
+        .map(|i| (i.name.as_str(), i))
+        .collect();
+    let target_idx: HashMap<&str, &Index> = target
+        .indexes
+        .iter()
+        .map(|i| (i.name.as_str(), i))
+        .collect();
 
     for idx in &source.indexes {
         if !target_idx.contains_key(idx.name.as_str()) {
@@ -141,7 +165,11 @@ fn compare_tables(
                     object_name: Some(idx.name.clone()),
                     source_def: Some(idx.columns.join(", ")),
                     target_def: Some(target_index.columns.join(", ")),
-                    sql: format!("{}\n{}", sql_gen.generate_drop_index(&source.name, &idx.name), sql_gen.generate_add_index(&source.name, idx)),
+                    sql: format!(
+                        "{}\n{}",
+                        sql_gen.generate_drop_index(&source.name, &idx.name),
+                        sql_gen.generate_add_index(&source.name, idx)
+                    ),
                     selected: true,
                 });
             }
@@ -165,8 +193,16 @@ fn compare_tables(
     }
 
     // Compare foreign keys
-    let source_fks: HashMap<&str, &ForeignKey> = source.foreign_keys.iter().map(|f| (f.name.as_str(), f)).collect();
-    let target_fks: HashMap<&str, &ForeignKey> = target.foreign_keys.iter().map(|f| (f.name.as_str(), f)).collect();
+    let source_fks: HashMap<&str, &ForeignKey> = source
+        .foreign_keys
+        .iter()
+        .map(|f| (f.name.as_str(), f))
+        .collect();
+    let target_fks: HashMap<&str, &ForeignKey> = target
+        .foreign_keys
+        .iter()
+        .map(|f| (f.name.as_str(), f))
+        .collect();
 
     for fk in &source.foreign_keys {
         if !target_fks.contains_key(fk.name.as_str()) {
@@ -201,8 +237,16 @@ fn compare_tables(
     }
 
     // Compare unique constraints
-    let source_ucs: HashMap<&str, &UniqueConstraint> = source.unique_constraints.iter().map(|u| (u.name.as_str(), u)).collect();
-    let target_ucs: HashMap<&str, &UniqueConstraint> = target.unique_constraints.iter().map(|u| (u.name.as_str(), u)).collect();
+    let source_ucs: HashMap<&str, &UniqueConstraint> = source
+        .unique_constraints
+        .iter()
+        .map(|u| (u.name.as_str(), u))
+        .collect();
+    let target_ucs: HashMap<&str, &UniqueConstraint> = target
+        .unique_constraints
+        .iter()
+        .map(|u| (u.name.as_str(), u))
+        .collect();
 
     for uc in &source.unique_constraints {
         if !target_ucs.contains_key(uc.name.as_str()) {

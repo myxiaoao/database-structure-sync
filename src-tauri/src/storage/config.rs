@@ -1,5 +1,5 @@
 use anyhow::Result;
-use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite};
+use sqlx::{Pool, Sqlite, sqlite::SqlitePoolOptions};
 use std::path::PathBuf;
 
 use crate::models::{Connection, ConnectionInput, DbType, SshAuthMethod, SshConfig, SslConfig};
@@ -54,30 +54,31 @@ impl ConfigStore {
 
     fn fetch_connection_passwords(row: &ConnectionRow) -> (String, Option<String>, Option<String>) {
         let password = crypto::get_password(&row.id).unwrap_or_default();
-        let ssh_password = if row.ssh_enabled == 1 && row.ssh_auth_method.as_deref() == Some("password") {
-            crypto::get_password(&format!("{}_ssh", row.id)).ok()
-        } else {
-            None
-        };
-        let ssh_passphrase = if row.ssh_enabled == 1 && row.ssh_auth_method.as_deref() == Some("privatekey") {
-            crypto::get_password(&format!("{}_ssh_passphrase", row.id)).ok()
-        } else {
-            None
-        };
+        let ssh_password =
+            if row.ssh_enabled == 1 && row.ssh_auth_method.as_deref() == Some("password") {
+                crypto::get_password(&format!("{}_ssh", row.id)).ok()
+            } else {
+                None
+            };
+        let ssh_passphrase =
+            if row.ssh_enabled == 1 && row.ssh_auth_method.as_deref() == Some("privatekey") {
+                crypto::get_password(&format!("{}_ssh_passphrase", row.id)).ok()
+            } else {
+                None
+            };
         (password, ssh_password, ssh_passphrase)
     }
 
     pub async fn list_connections(&self) -> Result<Vec<Connection>> {
-        let rows = sqlx::query_as::<_, ConnectionRow>(
-            "SELECT * FROM connections ORDER BY name"
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let rows = sqlx::query_as::<_, ConnectionRow>("SELECT * FROM connections ORDER BY name")
+            .fetch_all(&self.pool)
+            .await?;
 
         let connections = rows
             .into_iter()
             .map(|row| {
-                let (password, ssh_password, ssh_passphrase) = Self::fetch_connection_passwords(&row);
+                let (password, ssh_password, ssh_passphrase) =
+                    Self::fetch_connection_passwords(&row);
                 row.into_connection(password, ssh_password, ssh_passphrase)
             })
             .collect();
@@ -86,12 +87,10 @@ impl ConfigStore {
     }
 
     pub async fn get_connection(&self, id: &str) -> Result<Option<Connection>> {
-        let row = sqlx::query_as::<_, ConnectionRow>(
-            "SELECT * FROM connections WHERE id = ?"
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row = sqlx::query_as::<_, ConnectionRow>("SELECT * FROM connections WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
 
         Ok(row.map(|row| {
             let (password, ssh_password, ssh_passphrase) = Self::fetch_connection_passwords(&row);
@@ -117,14 +116,24 @@ impl ConfigStore {
                             crypto::store_password(&format!("{}_ssh", id), password)?;
                             ("password".to_string(), None)
                         }
-                        SshAuthMethod::PrivateKey { private_key_path, passphrase } => {
+                        SshAuthMethod::PrivateKey {
+                            private_key_path,
+                            passphrase,
+                        } => {
                             if let Some(pp) = passphrase {
                                 crypto::store_password(&format!("{}_ssh_passphrase", id), pp)?;
                             }
                             ("privatekey".to_string(), Some(private_key_path.clone()))
                         }
                     };
-                    (1, Some(ssh.host.clone()), Some(ssh.port as i32), Some(ssh.username.clone()), Some(method), key_path)
+                    (
+                        1,
+                        Some(ssh.host.clone()),
+                        Some(ssh.port as i32),
+                        Some(ssh.username.clone()),
+                        Some(method),
+                        key_path,
+                    )
                 }
                 _ => (0, None, None, None, None, None),
             };
@@ -230,7 +239,12 @@ struct ConnectionRow {
 }
 
 impl ConnectionRow {
-    fn into_connection(self, password: String, ssh_password: Option<String>, ssh_passphrase: Option<String>) -> Connection {
+    fn into_connection(
+        self,
+        password: String,
+        ssh_password: Option<String>,
+        ssh_passphrase: Option<String>,
+    ) -> Connection {
         let db_type = match self.db_type.as_str() {
             "mysql" => DbType::MySQL,
             "postgresql" => DbType::PostgreSQL,
@@ -247,7 +261,9 @@ impl ConnectionRow {
                     private_key_path: self.ssh_private_key_path.unwrap_or_default(),
                     passphrase: ssh_passphrase,
                 },
-                _ => SshAuthMethod::Password { password: String::new() },
+                _ => SshAuthMethod::Password {
+                    password: String::new(),
+                },
             };
             Some(SshConfig {
                 enabled: true,
