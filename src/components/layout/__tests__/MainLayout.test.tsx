@@ -78,15 +78,15 @@ describe("MainLayout", () => {
   });
 
   it("should render AppLogo", () => {
-    const { container } = render(
+    render(
       <MainLayout>
         <div>Content</div>
       </MainLayout>
     );
 
-    // AppLogo renders an SVG
-    const svg = container.querySelector("svg");
-    expect(svg).toBeInTheDocument();
+    // AppLogo renders an img
+    const img = screen.getByAltText("Database Structure Sync");
+    expect(img).toBeInTheDocument();
   });
 
   it("should pass connection handlers to sidebar", () => {

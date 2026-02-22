@@ -5,67 +5,13 @@ interface AppLogoProps {
 
 export function AppLogo({ className = "", size = 32 }: AppLogoProps) {
   return (
-    <svg
+    <img
+      src="/app-icon.png"
       width={size}
       height={size}
-      viewBox="0 0 512 512"
-      xmlns="http://www.w3.org/2000/svg"
+      alt="Database Structure Sync"
       className={className}
-    >
-      <defs>
-        <linearGradient id="logoGradPrimary" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#3B82F6" />
-          <stop offset="100%" stopColor="#1D4ED8" />
-        </linearGradient>
-        <linearGradient id="logoGradSecondary" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#10B981" />
-          <stop offset="100%" stopColor="#059669" />
-        </linearGradient>
-      </defs>
-
-      {/* Left database cylinder - simplified */}
-      <g transform="translate(56, 120)">
-        <rect x="0" y="40" width="160" height="200" rx="16" fill="url(#logoGradPrimary)" />
-        <ellipse cx="80" cy="40" rx="80" ry="32" fill="url(#logoGradPrimary)" />
-        <ellipse cx="80" cy="40" rx="80" ry="32" fill="white" opacity="0.2" />
-        <ellipse
-          cx="80"
-          cy="140"
-          rx="80"
-          ry="32"
-          fill="none"
-          stroke="white"
-          strokeWidth="3"
-          opacity="0.3"
-        />
-        <ellipse cx="80" cy="240" rx="80" ry="32" fill="url(#logoGradPrimary)" />
-      </g>
-
-      {/* Right database cylinder - simplified */}
-      <g transform="translate(296, 152)">
-        <rect x="0" y="40" width="160" height="200" rx="16" fill="url(#logoGradPrimary)" />
-        <ellipse cx="80" cy="40" rx="80" ry="32" fill="url(#logoGradPrimary)" />
-        <ellipse cx="80" cy="40" rx="80" ry="32" fill="white" opacity="0.2" />
-        <ellipse
-          cx="80"
-          cy="140"
-          rx="80"
-          ry="32"
-          fill="none"
-          stroke="white"
-          strokeWidth="3"
-          opacity="0.3"
-        />
-        <ellipse cx="80" cy="240" rx="80" ry="32" fill="url(#logoGradPrimary)" />
-      </g>
-
-      {/* Sync arrows - modern curved style */}
-      <g fill="url(#logoGradSecondary)">
-        {/* Top arrow (left to right) */}
-        <path d="M200 200 L280 200 L280 180 L320 210 L280 240 L280 220 L200 220 Z" />
-        {/* Bottom arrow (right to left) */}
-        <path d="M312 300 L232 300 L232 280 L192 310 L232 340 L232 320 L312 320 Z" />
-      </g>
-    </svg>
+      style={{ borderRadius: size * 0.18 }}
+    />
   );
 }
