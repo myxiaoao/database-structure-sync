@@ -87,8 +87,10 @@
     "indexModified": "修改索引",
     "foreignKeyAdded": "新增外键",
     "foreignKeyRemoved": "删除外键",
+    "foreignKeyModified": "修改外键",
     "uniqueAdded": "新增唯一约束",
-    "uniqueRemoved": "删除唯一约束"
+    "uniqueRemoved": "删除唯一约束",
+    "uniqueModified": "修改唯一约束"
   },
   "sql": {
     "preview": "SQL 预览",

@@ -13,8 +13,10 @@ pub enum DiffType {
     IndexModified,
     ForeignKeyAdded,
     ForeignKeyRemoved,
+    ForeignKeyModified,
     UniqueConstraintAdded,
     UniqueConstraintRemoved,
+    UniqueConstraintModified,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

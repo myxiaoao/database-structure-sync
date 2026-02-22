@@ -91,12 +91,19 @@ impl DatabaseDriver {
     }
 
     async fn execute_sql(&self, sql: &str) -> Result<(), sqlx::Error> {
-        match self {
-            DatabaseDriver::MySql(d) => {
-                sqlx::query(sql).execute(d.pool()).await?;
+        for stmt in sql.split(';') {
+            let stmt = stmt.trim();
+            if stmt.is_empty() {
+                continue;
             }
-            DatabaseDriver::Postgres(d) => {
-                sqlx::query(sql).execute(d.pool()).await?;
+            let full = format!("{};", stmt);
+            match self {
+                DatabaseDriver::MySql(d) => {
+                    sqlx::query(&full).execute(d.pool()).await?;
+                }
+                DatabaseDriver::Postgres(d) => {
+                    sqlx::query(&full).execute(d.pool()).await?;
+                }
             }
         }
         Ok(())

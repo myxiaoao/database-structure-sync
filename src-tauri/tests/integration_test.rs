@@ -877,8 +877,10 @@ fn test_diff_type_variants() {
         DiffType::IndexModified,
         DiffType::ForeignKeyAdded,
         DiffType::ForeignKeyRemoved,
+        DiffType::ForeignKeyModified,
         DiffType::UniqueConstraintAdded,
         DiffType::UniqueConstraintRemoved,
+        DiffType::UniqueConstraintModified,
     ];
 
     for i in 0..types.len() {
@@ -1174,9 +1176,7 @@ fn test_ssh_auth_method_private_key_no_passphrase() {
     let json = serde_json::to_string(&auth).unwrap();
     let deserialized: SshAuthMethod = serde_json::from_str(&json).unwrap();
     match deserialized {
-        SshAuthMethod::PrivateKey {
-            passphrase, ..
-        } => assert_eq!(passphrase, None),
+        SshAuthMethod::PrivateKey { passphrase, .. } => assert_eq!(passphrase, None),
         _ => panic!("expected PrivateKey variant"),
     }
 }
@@ -1331,6 +1331,14 @@ fn test_diff_type_serialize_snake_case() {
         serde_json::to_string(&DiffType::UniqueConstraintRemoved).unwrap(),
         "\"unique_constraint_removed\""
     );
+    assert_eq!(
+        serde_json::to_string(&DiffType::ForeignKeyModified).unwrap(),
+        "\"foreign_key_modified\""
+    );
+    assert_eq!(
+        serde_json::to_string(&DiffType::UniqueConstraintModified).unwrap(),
+        "\"unique_constraint_modified\""
+    );
 }
 
 #[test]
@@ -1477,10 +1485,7 @@ fn test_column_serialize_deserialize() {
     assert!(deserialized.nullable);
     assert_eq!(deserialized.default_value, Some("''".to_string()));
     assert!(!deserialized.auto_increment);
-    assert_eq!(
-        deserialized.comment,
-        Some("User email address".to_string())
-    );
+    assert_eq!(deserialized.comment, Some("User email address".to_string()));
     assert_eq!(deserialized.ordinal_position, 3);
 }
 
@@ -1754,10 +1759,7 @@ fn test_primary_key_equality() {
 
 #[test]
 fn test_foreign_key_same_name_different_content() {
-    // The comparator matches foreign keys by name only.
-    // When the same FK name exists in both source and target but with
-    // different content (e.g., different ref_table), the comparator
-    // does NOT detect it as a modification -- it considers the FK matched.
+    // The comparator now detects FK content changes as ForeignKeyModified.
     let mut source_table = create_table(
         "orders",
         vec![
@@ -1789,13 +1791,83 @@ fn test_foreign_key_same_name_different_content() {
 
     let diffs = compare_schemas(&vec![source_table], &vec![target_table], &MockSqlGen);
 
-    // The comparator only checks for FK existence by name; it does NOT detect
-    // modifications to FK content. So no diffs should be produced.
-    assert!(
-        diffs.is_empty(),
-        "Expected no diffs because FK comparison only checks existence by name, got: {:?}",
-        diffs
+    assert_eq!(diffs.len(), 1);
+    assert_eq!(diffs[0].diff_type, DiffType::ForeignKeyModified);
+    assert_eq!(diffs[0].object_name, Some("fk_user".to_string()));
+    assert!(diffs[0].sql.contains("DROP FOREIGN KEY"));
+    assert!(diffs[0].sql.contains("FOREIGN KEY"));
+    assert!(diffs[0].sql.contains("REFERENCES"));
+}
+
+#[test]
+fn test_detect_modified_foreign_key_on_delete() {
+    let mut source_table = create_table(
+        "orders",
+        vec![
+            create_column("id", "INT", false, true, 1),
+            create_column("user_id", "INT", false, false, 2),
+        ],
     );
+    source_table.foreign_keys = vec![ForeignKey {
+        name: "fk_user".to_string(),
+        columns: vec!["user_id".to_string()],
+        ref_table: "users".to_string(),
+        ref_columns: vec!["id".to_string()],
+        on_delete: "SET NULL".to_string(),
+        on_update: "CASCADE".to_string(),
+    }];
+
+    let mut target_table = create_table(
+        "orders",
+        vec![
+            create_column("id", "INT", false, true, 1),
+            create_column("user_id", "INT", false, false, 2),
+        ],
+    );
+    target_table.foreign_keys = vec![ForeignKey {
+        name: "fk_user".to_string(),
+        columns: vec!["user_id".to_string()],
+        ref_table: "users".to_string(),
+        ref_columns: vec!["id".to_string()],
+        on_delete: "CASCADE".to_string(),
+        on_update: "CASCADE".to_string(),
+    }];
+
+    let diffs = compare_schemas(&vec![source_table], &vec![target_table], &MockSqlGen);
+
+    assert_eq!(diffs.len(), 1);
+    assert_eq!(diffs[0].diff_type, DiffType::ForeignKeyModified);
+}
+
+#[test]
+fn test_detect_modified_unique_constraint() {
+    let mut source_table = create_table(
+        "users",
+        vec![
+            create_column("email", "VARCHAR(255)", false, false, 1),
+            create_column("phone", "VARCHAR(20)", false, false, 2),
+        ],
+    );
+    source_table.unique_constraints =
+        vec![create_unique_constraint("uq_contact", vec!["email", "phone"])];
+
+    let mut target_table = create_table(
+        "users",
+        vec![
+            create_column("email", "VARCHAR(255)", false, false, 1),
+            create_column("phone", "VARCHAR(20)", false, false, 2),
+        ],
+    );
+    target_table.unique_constraints =
+        vec![create_unique_constraint("uq_contact", vec!["email"])];
+
+    let diffs = compare_schemas(&vec![source_table], &vec![target_table], &MockSqlGen);
+
+    assert_eq!(diffs.len(), 1);
+    assert_eq!(diffs[0].diff_type, DiffType::UniqueConstraintModified);
+    assert_eq!(diffs[0].object_name, Some("uq_contact".to_string()));
+    assert!(diffs[0].sql.contains("DROP CONSTRAINT"));
+    assert!(diffs[0].sql.contains("UNIQUE"));
 }
 
 #[test]
@@ -1815,8 +1887,7 @@ fn test_id_counter_increments_across_all_diff_types() {
         "other",
         vec!["id"],
     )];
-    source_table.unique_constraints =
-        vec![create_unique_constraint("uq_new", vec!["new_col"])];
+    source_table.unique_constraints = vec![create_unique_constraint("uq_new", vec!["new_col"])];
 
     // A new table that doesn't exist in target
     let new_table = create_table(
@@ -1838,8 +1909,7 @@ fn test_id_counter_increments_across_all_diff_types() {
         "legacy",
         vec!["id"],
     )];
-    target_table.unique_constraints =
-        vec![create_unique_constraint("uq_old", vec!["old_col"])];
+    target_table.unique_constraints = vec![create_unique_constraint("uq_old", vec!["old_col"])];
 
     // Also a table in target only, to be removed
     let old_table = create_table(
@@ -1891,7 +1961,7 @@ fn test_id_counter_increments_across_all_diff_types() {
 fn test_modified_column_auto_increment_change() {
     let source = vec![create_table(
         "users",
-        vec![create_column("id", "INT", false, true, 1)],  // auto_increment = true
+        vec![create_column("id", "INT", false, true, 1)], // auto_increment = true
     )];
 
     let target = vec![create_table(

@@ -217,6 +217,24 @@ fn compare_tables(
                 sql: sql_gen.generate_add_foreign_key(&source.name, fk),
                 selected: true,
             });
+        } else if let Some(target_fk) = target_fks.get(fk.name.as_str()) {
+            if fk != *target_fk {
+                *id_counter += 1;
+                diffs.push(DiffItem {
+                    id: id_counter.to_string(),
+                    diff_type: DiffType::ForeignKeyModified,
+                    table_name: source.name.clone(),
+                    object_name: Some(fk.name.clone()),
+                    source_def: Some(format!("-> {}", fk.ref_table)),
+                    target_def: Some(format!("-> {}", target_fk.ref_table)),
+                    sql: format!(
+                        "{}\n{}",
+                        sql_gen.generate_drop_foreign_key(&source.name, &fk.name),
+                        sql_gen.generate_add_foreign_key(&source.name, fk)
+                    ),
+                    selected: true,
+                });
+            }
         }
     }
 
@@ -261,6 +279,24 @@ fn compare_tables(
                 sql: sql_gen.generate_add_unique(&source.name, uc),
                 selected: true,
             });
+        } else if let Some(target_uc) = target_ucs.get(uc.name.as_str()) {
+            if uc != *target_uc {
+                *id_counter += 1;
+                diffs.push(DiffItem {
+                    id: id_counter.to_string(),
+                    diff_type: DiffType::UniqueConstraintModified,
+                    table_name: source.name.clone(),
+                    object_name: Some(uc.name.clone()),
+                    source_def: Some(uc.columns.join(", ")),
+                    target_def: Some(target_uc.columns.join(", ")),
+                    sql: format!(
+                        "{}\n{}",
+                        sql_gen.generate_drop_unique(&source.name, &uc.name),
+                        sql_gen.generate_add_unique(&source.name, uc)
+                    ),
+                    selected: true,
+                });
+            }
         }
     }
 

@@ -162,15 +162,7 @@ fn mysql_create_table_full() {
         "orders",
         vec![
             col_full("id", "INT", false, None, true, None, 1),
-            col_full(
-                "user_id",
-                "INT",
-                false,
-                None,
-                false,
-                Some("FK to users"),
-                2,
-            ),
+            col_full("user_id", "INT", false, None, false, Some("FK to users"), 2),
             col_full("status", "INT", false, Some("0"), false, None, 3),
         ],
     );
@@ -212,10 +204,7 @@ fn mysql_add_column_basic() {
     let sqlgen = MySqlSqlGenerator;
     let c = col("email", "VARCHAR(255)", true, false, 2);
     let sql = sqlgen.generate_add_column("users", &c);
-    assert_eq!(
-        sql,
-        "ALTER TABLE `users` ADD COLUMN `email` VARCHAR(255);"
-    );
+    assert_eq!(sql, "ALTER TABLE `users` ADD COLUMN `email` VARCHAR(255);");
 }
 
 #[test]
@@ -326,10 +315,7 @@ fn mysql_add_index_plain() {
     let sqlgen = MySqlSqlGenerator;
     let idx = make_index("idx_email", vec!["email"], false);
     let sql = sqlgen.generate_add_index("users", &idx);
-    assert_eq!(
-        sql,
-        "CREATE INDEX `idx_email` ON `users` (`email`);"
-    );
+    assert_eq!(sql, "CREATE INDEX `idx_email` ON `users` (`email`);");
 }
 
 #[test]
@@ -337,7 +323,10 @@ fn mysql_add_index_unique() {
     let sqlgen = MySqlSqlGenerator;
     let idx = make_index("idx_email", vec!["email"], true);
     let sql = sqlgen.generate_add_index("users", &idx);
-    assert!(sql.contains("CREATE UNIQUE INDEX"));
+    assert_eq!(
+        sql,
+        "CREATE UNIQUE INDEX `idx_email` ON `users` (`email`);"
+    );
 }
 
 #[test]
@@ -394,10 +383,7 @@ fn mysql_add_fk_multi_column() {
 fn mysql_drop_fk() {
     let sqlgen = MySqlSqlGenerator;
     let sql = sqlgen.generate_drop_foreign_key("orders", "fk_user");
-    assert_eq!(
-        sql,
-        "ALTER TABLE `orders` DROP FOREIGN KEY `fk_user`;"
-    );
+    assert_eq!(sql, "ALTER TABLE `orders` DROP FOREIGN KEY `fk_user`;");
 }
 
 // ============================================================================
@@ -431,10 +417,7 @@ fn mysql_add_unique_multi() {
 fn mysql_drop_unique() {
     let sqlgen = MySqlSqlGenerator;
     let sql = sqlgen.generate_drop_unique("users", "uq_email");
-    assert_eq!(
-        sql,
-        "ALTER TABLE `users` DROP INDEX `uq_email`;"
-    );
+    assert_eq!(sql, "ALTER TABLE `users` DROP INDEX `uq_email`;");
 }
 
 // ============================================================================
@@ -494,19 +477,56 @@ fn pg_modify_column_type_syntax() {
     let sqlgen = PostgresSqlGenerator;
     let c = col("name", "VARCHAR(500)", true, false, 2);
     let sql = sqlgen.generate_modify_column("users", &c);
-    assert_eq!(
-        sql,
-        "ALTER TABLE \"users\" ALTER COLUMN \"name\" TYPE VARCHAR(500);"
-    );
+    assert!(sql.contains("ALTER TABLE \"users\" ALTER COLUMN \"name\" TYPE VARCHAR(500);"));
+    assert!(sql.contains("DROP NOT NULL"));
+    assert!(sql.contains("DROP DEFAULT"));
     assert!(!sql.contains("MODIFY COLUMN"));
 }
 
 #[test]
-fn pg_modify_column_auto_increment_serial() {
+fn pg_modify_column_no_serial_for_auto_increment() {
     let sqlgen = PostgresSqlGenerator;
     let c = col("id", "INT", false, true, 1);
     let sql = sqlgen.generate_modify_column("users", &c);
-    assert!(sql.contains("TYPE SERIAL"));
+    // Should NOT use SERIAL pseudo-type for ALTER COLUMN
+    assert!(!sql.contains("SERIAL"));
+    assert!(sql.contains("TYPE INT"));
+}
+
+#[test]
+fn pg_modify_column_emits_not_null() {
+    let sqlgen = PostgresSqlGenerator;
+    let c = col("email", "VARCHAR(255)", false, false, 2);
+    let sql = sqlgen.generate_modify_column("users", &c);
+    assert!(sql.contains("SET NOT NULL"));
+    assert!(!sql.contains("DROP NOT NULL"));
+}
+
+#[test]
+fn pg_modify_column_emits_drop_not_null() {
+    let sqlgen = PostgresSqlGenerator;
+    let c = col("email", "VARCHAR(255)", true, false, 2);
+    let sql = sqlgen.generate_modify_column("users", &c);
+    assert!(sql.contains("DROP NOT NULL"));
+    assert!(!sql.contains("SET NOT NULL"));
+}
+
+#[test]
+fn pg_modify_column_emits_set_default() {
+    let sqlgen = PostgresSqlGenerator;
+    let c = col_full("status", "INT", false, Some("0"), false, None, 2);
+    let sql = sqlgen.generate_modify_column("users", &c);
+    assert!(sql.contains("SET DEFAULT 0"));
+    assert!(!sql.contains("DROP DEFAULT"));
+}
+
+#[test]
+fn pg_modify_column_emits_drop_default() {
+    let sqlgen = PostgresSqlGenerator;
+    let c = col("status", "INT", false, false, 2);
+    let sql = sqlgen.generate_modify_column("users", &c);
+    assert!(sql.contains("DROP DEFAULT"));
+    assert!(!sql.contains("SET DEFAULT"));
 }
 
 // ============================================================================
@@ -559,10 +579,7 @@ fn pg_drop_index_no_on_table() {
 fn pg_drop_fk_constraint_syntax() {
     let sqlgen = PostgresSqlGenerator;
     let sql = sqlgen.generate_drop_foreign_key("orders", "fk_user");
-    assert_eq!(
-        sql,
-        "ALTER TABLE \"orders\" DROP CONSTRAINT \"fk_user\";"
-    );
+    assert_eq!(sql, "ALTER TABLE \"orders\" DROP CONSTRAINT \"fk_user\";");
     assert!(!sql.contains("FOREIGN KEY"));
 }
 
@@ -574,10 +591,7 @@ fn pg_drop_fk_constraint_syntax() {
 fn pg_drop_unique_constraint_syntax() {
     let sqlgen = PostgresSqlGenerator;
     let sql = sqlgen.generate_drop_unique("users", "uq_email");
-    assert_eq!(
-        sql,
-        "ALTER TABLE \"users\" DROP CONSTRAINT \"uq_email\";"
-    );
+    assert_eq!(sql, "ALTER TABLE \"users\" DROP CONSTRAINT \"uq_email\";");
     assert!(!sql.contains("DROP INDEX"));
 }
 
@@ -605,6 +619,39 @@ fn cross_gen_drop_index_syntax_difference() {
     assert!(mysql_sql.contains("ON"));
     // PostgreSQL does not
     assert!(!pg_sql.contains("ON"));
+}
+
+#[test]
+#[test]
+fn mysql_fk_invalid_action_falls_back() {
+    let sqlgen = MySqlSqlGenerator;
+    let fk = ForeignKey {
+        name: "fk_bad".to_string(),
+        columns: vec!["user_id".to_string()],
+        ref_table: "users".to_string(),
+        ref_columns: vec!["id".to_string()],
+        on_delete: "DROP TABLE".to_string(),
+        on_update: "INVALID".to_string(),
+    };
+    let sql = sqlgen.generate_add_foreign_key("orders", &fk);
+    assert!(sql.contains("ON DELETE NO ACTION"));
+    assert!(sql.contains("ON UPDATE NO ACTION"));
+}
+
+#[test]
+fn pg_fk_invalid_action_falls_back() {
+    let sqlgen = PostgresSqlGenerator;
+    let fk = ForeignKey {
+        name: "fk_bad".to_string(),
+        columns: vec!["user_id".to_string()],
+        ref_table: "users".to_string(),
+        ref_columns: vec!["id".to_string()],
+        on_delete: "'; DROP TABLE users; --".to_string(),
+        on_update: "WHATEVER".to_string(),
+    };
+    let sql = sqlgen.generate_add_foreign_key("orders", &fk);
+    assert!(sql.contains("ON DELETE NO ACTION"));
+    assert!(sql.contains("ON UPDATE NO ACTION"));
 }
 
 #[test]

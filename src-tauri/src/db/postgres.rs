@@ -294,6 +294,13 @@ impl PostgresDriver {
 
 pub struct PostgresSqlGenerator;
 
+fn validate_fk_action(action: &str) -> &str {
+    match action.to_uppercase().as_str() {
+        "CASCADE" | "SET NULL" | "SET DEFAULT" | "RESTRICT" | "NO ACTION" => action,
+        _ => "NO ACTION",
+    }
+}
+
 impl SqlGenerator for PostgresSqlGenerator {
     fn quote_identifier(&self, name: &str) -> String {
         format!("\"{}\"", name.replace('"', "\"\""))
@@ -358,8 +365,8 @@ impl SqlGenerator for PostgresSqlGenerator {
                 cols.join(", "),
                 self.quote_identifier(&fk.ref_table),
                 ref_cols.join(", "),
-                fk.on_delete,
-                fk.on_update
+                validate_fk_action(&fk.on_delete),
+                validate_fk_action(&fk.on_update)
             ));
         }
 
@@ -420,17 +427,43 @@ impl SqlGenerator for PostgresSqlGenerator {
     }
 
     fn generate_modify_column(&self, table: &str, column: &Column) -> String {
-        let data_type = if column.auto_increment {
-            "SERIAL".to_string()
-        } else {
-            column.data_type.clone()
-        };
-        format!(
+        let tbl = self.quote_identifier(table);
+        let col = self.quote_identifier(&column.name);
+        let mut stmts = Vec::new();
+
+        // TYPE — never use SERIAL pseudo-type for ALTER COLUMN
+        stmts.push(format!(
             "ALTER TABLE {} ALTER COLUMN {} TYPE {};",
-            self.quote_identifier(table),
-            self.quote_identifier(&column.name),
-            data_type
-        )
+            tbl, col, column.data_type
+        ));
+
+        // NOT NULL
+        if !column.nullable {
+            stmts.push(format!(
+                "ALTER TABLE {} ALTER COLUMN {} SET NOT NULL;",
+                tbl, col
+            ));
+        } else {
+            stmts.push(format!(
+                "ALTER TABLE {} ALTER COLUMN {} DROP NOT NULL;",
+                tbl, col
+            ));
+        }
+
+        // DEFAULT
+        if let Some(default) = &column.default_value {
+            stmts.push(format!(
+                "ALTER TABLE {} ALTER COLUMN {} SET DEFAULT {};",
+                tbl, col, default
+            ));
+        } else {
+            stmts.push(format!(
+                "ALTER TABLE {} ALTER COLUMN {} DROP DEFAULT;",
+                tbl, col
+            ));
+        }
+
+        stmts.join("\n")
     }
 
     fn generate_add_index(&self, table: &str, index: &Index) -> String {
@@ -475,8 +508,8 @@ impl SqlGenerator for PostgresSqlGenerator {
             cols.join(", "),
             self.quote_identifier(&fk.ref_table),
             ref_cols.join(", "),
-            fk.on_delete,
-            fk.on_update
+            validate_fk_action(&fk.on_delete),
+            validate_fk_action(&fk.on_update)
         )
     }
 

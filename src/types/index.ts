@@ -12,8 +12,10 @@ export type DiffType =
   | "IndexModified"
   | "ForeignKeyAdded"
   | "ForeignKeyRemoved"
+  | "ForeignKeyModified"
   | "UniqueConstraintAdded"
-  | "UniqueConstraintRemoved";
+  | "UniqueConstraintRemoved"
+  | "UniqueConstraintModified";
 
 interface ConnectionBase {
   name: string;

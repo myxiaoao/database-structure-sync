@@ -60,8 +60,10 @@ function getDiffLabel(diffType: string, t: (key: string) => string): string {
     IndexModified: t("diff.indexModified"),
     ForeignKeyAdded: t("diff.foreignKeyAdded"),
     ForeignKeyRemoved: t("diff.foreignKeyRemoved"),
+    ForeignKeyModified: t("diff.foreignKeyModified"),
     UniqueConstraintAdded: t("diff.uniqueAdded"),
     UniqueConstraintRemoved: t("diff.uniqueRemoved"),
+    UniqueConstraintModified: t("diff.uniqueModified"),
   };
   return labels[diffType] || diffType;
 }

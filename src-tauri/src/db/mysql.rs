@@ -297,6 +297,13 @@ impl MySqlDriver {
 
 pub struct MySqlSqlGenerator;
 
+fn validate_fk_action(action: &str) -> &str {
+    match action.to_uppercase().as_str() {
+        "CASCADE" | "SET NULL" | "SET DEFAULT" | "RESTRICT" | "NO ACTION" => action,
+        _ => "NO ACTION",
+    }
+}
+
 impl SqlGenerator for MySqlSqlGenerator {
     fn quote_identifier(&self, name: &str) -> String {
         format!("`{}`", name.replace('`', "``"))
@@ -378,8 +385,8 @@ impl SqlGenerator for MySqlSqlGenerator {
                 cols.join(", "),
                 self.quote_identifier(&fk.ref_table),
                 ref_cols.join(", "),
-                fk.on_delete,
-                fk.on_update
+                validate_fk_action(&fk.on_delete),
+                validate_fk_action(&fk.on_update)
             ));
         }
 
@@ -492,8 +499,8 @@ impl SqlGenerator for MySqlSqlGenerator {
             cols.join(", "),
             self.quote_identifier(&fk.ref_table),
             ref_cols.join(", "),
-            fk.on_delete,
-            fk.on_update
+            validate_fk_action(&fk.on_delete),
+            validate_fk_action(&fk.on_update)
         )
     }
 

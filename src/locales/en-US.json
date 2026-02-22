@@ -87,8 +87,10 @@
     "indexModified": "Modify Index",
     "foreignKeyAdded": "Add Foreign Key",
     "foreignKeyRemoved": "Drop Foreign Key",
+    "foreignKeyModified": "Modify Foreign Key",
     "uniqueAdded": "Add Unique Constraint",
-    "uniqueRemoved": "Drop Unique Constraint"
+    "uniqueRemoved": "Drop Unique Constraint",
+    "uniqueModified": "Modify Unique Constraint"
   },
   "sql": {
     "preview": "SQL Preview",

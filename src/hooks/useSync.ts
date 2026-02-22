@@ -170,6 +170,7 @@ export function useSync({ connections }: UseSyncOptions) {
 
   const handleExecute = useCallback(async () => {
     if (!targetId || !diffResult) return;
+    if (executeMutation.isPending || compareMutation.isPending) return;
 
     const statements = diffResult.items
       .filter((item) => selectedItems.has(item.id))
