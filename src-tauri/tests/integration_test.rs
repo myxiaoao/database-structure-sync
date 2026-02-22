@@ -1848,8 +1848,10 @@ fn test_detect_modified_unique_constraint() {
             create_column("phone", "VARCHAR(20)", false, false, 2),
         ],
     );
-    source_table.unique_constraints =
-        vec![create_unique_constraint("uq_contact", vec!["email", "phone"])];
+    source_table.unique_constraints = vec![create_unique_constraint(
+        "uq_contact",
+        vec!["email", "phone"],
+    )];
 
     let mut target_table = create_table(
         "users",
@@ -1858,8 +1860,7 @@ fn test_detect_modified_unique_constraint() {
             create_column("phone", "VARCHAR(20)", false, false, 2),
         ],
     );
-    target_table.unique_constraints =
-        vec![create_unique_constraint("uq_contact", vec!["email"])];
+    target_table.unique_constraints = vec![create_unique_constraint("uq_contact", vec!["email"])];
 
     let diffs = compare_schemas(&vec![source_table], &vec![target_table], &MockSqlGen);
 

@@ -323,10 +323,7 @@ fn mysql_add_index_unique() {
     let sqlgen = MySqlSqlGenerator;
     let idx = make_index("idx_email", vec!["email"], true);
     let sql = sqlgen.generate_add_index("users", &idx);
-    assert_eq!(
-        sql,
-        "CREATE UNIQUE INDEX `idx_email` ON `users` (`email`);"
-    );
+    assert_eq!(sql, "CREATE UNIQUE INDEX `idx_email` ON `users` (`email`);");
 }
 
 #[test]

@@ -274,15 +274,14 @@ describe("useConnections", () => {
 
     expect(result.current.isFormOpen).toBe(true);
 
-    try {
-      await act(async () => {
+    // Confirm the error actually propagates (not silently swallowed)
+    await expect(
+      act(async () => {
         await result.current.saveConnection(newConnection);
-      });
-    } catch {
-      // Expected to throw
-    }
+      })
+    ).rejects.toThrow("Save failed");
 
-    // Form should still be open because save failed
+    // Form should still be open because save failed — closeForm was never called
     expect(result.current.isFormOpen).toBe(true);
   });
 

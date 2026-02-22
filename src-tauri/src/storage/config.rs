@@ -567,4 +567,33 @@ mod tests {
         assert_eq!(ssh.host, "");
         assert_eq!(ssh.username, "");
     }
+
+    #[test]
+    fn into_connection_ssh_password_auth_with_none_ssh_password() {
+        let mut row = base_row();
+        row.ssh_enabled = 1;
+        row.ssh_host = Some("host".to_string());
+        row.ssh_username = Some("user".to_string());
+        row.ssh_auth_method = Some("password".to_string());
+
+        // ssh_password is None — should fall back to empty string via unwrap_or_default
+        let conn = row.into_connection("pw".into(), None, None);
+        let ssh = conn.ssh_config.unwrap();
+        match ssh.auth_method {
+            SshAuthMethod::Password { password } => assert_eq!(password, ""),
+            _ => panic!("expected Password auth with empty string"),
+        }
+    }
+
+    #[test]
+    fn into_connection_ssl_verify_server_nonzero_nonone_is_false() {
+        let mut row = base_row();
+        row.ssl_enabled = 1;
+        row.ssl_verify_server = 2; // not 0 and not 1
+
+        let conn = row.into_connection("pw".into(), None, None);
+        let ssl = conn.ssl_config.unwrap();
+        // Production code: `self.ssl_verify_server == 1`, so 2 maps to false
+        assert!(!ssl.verify_server);
+    }
 }
