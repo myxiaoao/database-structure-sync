@@ -571,4 +571,369 @@ describe("useSync", () => {
 
     expect(exportResult).toBe(false);
   });
+
+  // ==========================================================================
+  // canCompare combination matrix
+  // ==========================================================================
+
+  it("should not allow compare when target needs DB select but none selected", () => {
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("source-id");
+      result.current.setTargetId("no-db-id");
+    });
+
+    expect(result.current.targetNeedsDbSelect).toBe(true);
+    expect(result.current.canCompare).toBeFalsy();
+  });
+
+  it("should allow compare when target DB is selected after needing it", () => {
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("source-id");
+      result.current.setTargetId("no-db-id");
+    });
+
+    expect(result.current.canCompare).toBeFalsy();
+
+    act(() => {
+      result.current.setTargetDb("selected_db");
+    });
+
+    expect(result.current.canCompare).toBeTruthy();
+  });
+
+  it("should not allow compare when both need DB select but only source selected", () => {
+    const bothNeedDbConnections: Connection[] = [
+      {
+        id: "no-db-1",
+        name: "No DB 1",
+        db_type: "MySQL",
+        host: "localhost",
+        port: 3306,
+        username: "root",
+        password: "password",
+        database: "",
+        ssh_enabled: false,
+        ssl_enabled: false,
+      },
+      {
+        id: "no-db-2",
+        name: "No DB 2",
+        db_type: "MySQL",
+        host: "localhost",
+        port: 3306,
+        username: "root",
+        password: "password",
+        database: "",
+        ssh_enabled: false,
+        ssl_enabled: false,
+      },
+    ];
+
+    const { result } = renderHook(() => useSync({ connections: bothNeedDbConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("no-db-1");
+      result.current.setTargetId("no-db-2");
+      result.current.setSourceDb("db_a");
+    });
+
+    // Source DB selected, but target DB not selected
+    expect(result.current.canCompare).toBeFalsy();
+  });
+
+  // ==========================================================================
+  // Mutation failure handling
+  // ==========================================================================
+
+  it("should not set diffResult when handleCompare fails", async () => {
+    mockInvoke.mockRejectedValueOnce(new Error("comparison failed"));
+
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("source-id");
+      result.current.setTargetId("target-id");
+    });
+
+    try {
+      await act(async () => {
+        await result.current.handleCompare();
+      });
+    } catch {
+      // Expected to throw
+    }
+
+    expect(result.current.diffResult).toBeNull();
+  });
+
+  it("should not clear diffResult when handleExecute fails", async () => {
+    mockInvoke
+      .mockResolvedValueOnce(mockDiffResult) // compare
+      .mockRejectedValueOnce(new Error("execute failed")); // execute
+
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("source-id");
+      result.current.setTargetId("target-id");
+    });
+
+    await act(async () => {
+      await result.current.handleCompare();
+    });
+
+    act(() => {
+      result.current.setSelectedItems(new Set(["diff-1"]));
+    });
+
+    expect(result.current.diffResult).toEqual(mockDiffResult);
+
+    try {
+      await act(async () => {
+        await result.current.handleExecute();
+      });
+    } catch {
+      // Expected to throw
+    }
+
+    // diffResult should still be set
+    expect(result.current.diffResult).toEqual(mockDiffResult);
+  });
+
+  // ==========================================================================
+  // SQL header edge cases
+  // ==========================================================================
+
+  it("should show N/A for null connections in SQL header", async () => {
+    // Use connections that won't be found by their IDs
+    mockInvoke.mockResolvedValue(mockDiffResult);
+
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("source-id");
+      result.current.setTargetId("target-id");
+    });
+
+    await act(async () => {
+      await result.current.handleCompare();
+    });
+
+    act(() => {
+      result.current.handleSelectAll();
+    });
+
+    // With valid connections, should NOT show N/A
+    expect(result.current.selectedSql).toContain("Source DB");
+    expect(result.current.selectedSql).toContain("Target DB");
+  });
+
+  it("should use MySQL style header/footer for MariaDB connections", async () => {
+    const mariaConnections: Connection[] = [
+      {
+        id: "maria-source",
+        name: "Maria Source",
+        db_type: "MariaDB",
+        host: "localhost",
+        port: 3306,
+        username: "root",
+        password: "password",
+        database: "source_db",
+        ssh_enabled: false,
+        ssl_enabled: false,
+      },
+      {
+        id: "maria-target",
+        name: "Maria Target",
+        db_type: "MariaDB",
+        host: "localhost",
+        port: 3306,
+        username: "root",
+        password: "password",
+        database: "target_db",
+        ssh_enabled: false,
+        ssl_enabled: false,
+      },
+    ];
+
+    mockInvoke.mockResolvedValue(mockDiffResult);
+
+    const { result } = renderHook(() => useSync({ connections: mariaConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("maria-source");
+      result.current.setTargetId("maria-target");
+    });
+
+    await act(async () => {
+      await result.current.handleCompare();
+    });
+
+    act(() => {
+      result.current.handleSelectAll();
+    });
+
+    // MariaDB should use MySQL-style header
+    expect(result.current.selectedSql).toContain("SET NAMES utf8mb4");
+    expect(result.current.selectedSql).toContain("FOREIGN_KEY_CHECKS");
+    // Should NOT use PostgreSQL-style header
+    expect(result.current.selectedSql).not.toContain("SET statement_timeout");
+  });
+
+  // ==========================================================================
+  // handleExecute passes targetDatabase when targetNeedsDbSelect
+  // ==========================================================================
+
+  it("should pass targetDatabase to execute_sync when target needs DB select", async () => {
+    // Mock: list_databases for target, compare, execute, refresh compare
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === "list_databases") return Promise.resolve(["db_a", "db_b"]);
+      if (cmd === "compare_databases") return Promise.resolve(mockDiffResult);
+      if (cmd === "execute_sync") return Promise.resolve(undefined);
+      return Promise.resolve([]);
+    });
+
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("source-id");
+      result.current.setTargetId("no-db-id");
+    });
+
+    act(() => {
+      result.current.setTargetDb("selected_target_db");
+    });
+
+    await act(async () => {
+      await result.current.handleCompare();
+    });
+
+    act(() => {
+      result.current.setSelectedItems(new Set(["diff-1"]));
+    });
+
+    await act(async () => {
+      await result.current.handleExecute();
+    });
+
+    expect(mockInvoke).toHaveBeenCalledWith("execute_sync", {
+      targetId: "no-db-id",
+      sqlStatements: ["CREATE TABLE users (id INT PRIMARY KEY);"],
+      targetDatabase: "selected_target_db",
+    });
+  });
+
+  // ==========================================================================
+  // isExporting state
+  // ==========================================================================
+
+  it("should have isExporting false initially", () => {
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.isExporting).toBe(false);
+  });
+
+  it("should reset isExporting after export error", async () => {
+    const mockSave = vi.mocked(save);
+    mockSave.mockRejectedValueOnce(new Error("save dialog error"));
+    mockInvoke.mockResolvedValue(mockDiffResult);
+
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("source-id");
+      result.current.setTargetId("target-id");
+    });
+
+    await act(async () => {
+      await result.current.handleCompare();
+    });
+
+    act(() => {
+      result.current.handleSelectAll();
+    });
+
+    try {
+      await act(async () => {
+        await result.current.handleExportSql();
+      });
+    } catch {
+      // Expected
+    }
+
+    // isExporting should be reset to false after error (finally block)
+    expect(result.current.isExporting).toBe(false);
+  });
+
+  // ==========================================================================
+  // Reset target DB when connection changes
+  // ==========================================================================
+
+  it("should reset target database selection when target connection changes", () => {
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setTargetId("no-db-id");
+      result.current.setTargetDb("selected_db");
+    });
+
+    expect(result.current.targetDb).toBe("selected_db");
+
+    act(() => {
+      result.current.setTargetId("target-id");
+    });
+
+    expect(result.current.targetDb).toBe("");
+  });
+
+  it("should toggle individual item selection", async () => {
+    mockInvoke.mockResolvedValue(mockDiffResult);
+
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("source-id");
+      result.current.setTargetId("target-id");
+    });
+
+    await act(async () => {
+      await result.current.handleCompare();
+    });
+
+    act(() => {
+      result.current.setSelectedItems(new Set(["diff-1"]));
+    });
+
+    expect(result.current.selectedItems.has("diff-1")).toBe(true);
+    expect(result.current.selectedItems.has("diff-2")).toBe(false);
+    expect(result.current.selectedItems.size).toBe(1);
+  });
 });

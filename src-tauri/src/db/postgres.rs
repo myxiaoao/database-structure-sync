@@ -292,7 +292,9 @@ impl PostgresDriver {
     }
 }
 
-impl SqlGenerator for PostgresDriver {
+pub struct PostgresSqlGenerator;
+
+impl SqlGenerator for PostgresSqlGenerator {
     fn quote_identifier(&self, name: &str) -> String {
         format!("\"{}\"", name.replace('"', "\"\""))
     }
@@ -506,5 +508,44 @@ impl SqlGenerator for PostgresDriver {
             self.quote_identifier(table),
             self.quote_identifier(uc_name)
         )
+    }
+}
+
+impl SqlGenerator for PostgresDriver {
+    fn quote_identifier(&self, name: &str) -> String {
+        PostgresSqlGenerator.quote_identifier(name)
+    }
+    fn generate_create_table(&self, table: &TableSchema) -> String {
+        PostgresSqlGenerator.generate_create_table(table)
+    }
+    fn generate_drop_table(&self, table_name: &str) -> String {
+        PostgresSqlGenerator.generate_drop_table(table_name)
+    }
+    fn generate_add_column(&self, table: &str, column: &Column) -> String {
+        PostgresSqlGenerator.generate_add_column(table, column)
+    }
+    fn generate_drop_column(&self, table: &str, column_name: &str) -> String {
+        PostgresSqlGenerator.generate_drop_column(table, column_name)
+    }
+    fn generate_modify_column(&self, table: &str, column: &Column) -> String {
+        PostgresSqlGenerator.generate_modify_column(table, column)
+    }
+    fn generate_add_index(&self, table: &str, index: &Index) -> String {
+        PostgresSqlGenerator.generate_add_index(table, index)
+    }
+    fn generate_drop_index(&self, table: &str, index_name: &str) -> String {
+        PostgresSqlGenerator.generate_drop_index(table, index_name)
+    }
+    fn generate_add_foreign_key(&self, table: &str, fk: &ForeignKey) -> String {
+        PostgresSqlGenerator.generate_add_foreign_key(table, fk)
+    }
+    fn generate_drop_foreign_key(&self, table: &str, fk_name: &str) -> String {
+        PostgresSqlGenerator.generate_drop_foreign_key(table, fk_name)
+    }
+    fn generate_add_unique(&self, table: &str, uc: &UniqueConstraint) -> String {
+        PostgresSqlGenerator.generate_add_unique(table, uc)
+    }
+    fn generate_drop_unique(&self, table: &str, uc_name: &str) -> String {
+        PostgresSqlGenerator.generate_drop_unique(table, uc_name)
     }
 }

@@ -295,7 +295,9 @@ impl MySqlDriver {
     }
 }
 
-impl SqlGenerator for MySqlDriver {
+pub struct MySqlSqlGenerator;
+
+impl SqlGenerator for MySqlSqlGenerator {
     fn quote_identifier(&self, name: &str) -> String {
         format!("`{}`", name.replace('`', "``"))
     }
@@ -523,5 +525,44 @@ impl SqlGenerator for MySqlDriver {
             self.quote_identifier(table),
             self.quote_identifier(uc_name)
         )
+    }
+}
+
+impl SqlGenerator for MySqlDriver {
+    fn quote_identifier(&self, name: &str) -> String {
+        MySqlSqlGenerator.quote_identifier(name)
+    }
+    fn generate_create_table(&self, table: &TableSchema) -> String {
+        MySqlSqlGenerator.generate_create_table(table)
+    }
+    fn generate_drop_table(&self, table_name: &str) -> String {
+        MySqlSqlGenerator.generate_drop_table(table_name)
+    }
+    fn generate_add_column(&self, table: &str, column: &Column) -> String {
+        MySqlSqlGenerator.generate_add_column(table, column)
+    }
+    fn generate_drop_column(&self, table: &str, column_name: &str) -> String {
+        MySqlSqlGenerator.generate_drop_column(table, column_name)
+    }
+    fn generate_modify_column(&self, table: &str, column: &Column) -> String {
+        MySqlSqlGenerator.generate_modify_column(table, column)
+    }
+    fn generate_add_index(&self, table: &str, index: &Index) -> String {
+        MySqlSqlGenerator.generate_add_index(table, index)
+    }
+    fn generate_drop_index(&self, table: &str, index_name: &str) -> String {
+        MySqlSqlGenerator.generate_drop_index(table, index_name)
+    }
+    fn generate_add_foreign_key(&self, table: &str, fk: &ForeignKey) -> String {
+        MySqlSqlGenerator.generate_add_foreign_key(table, fk)
+    }
+    fn generate_drop_foreign_key(&self, table: &str, fk_name: &str) -> String {
+        MySqlSqlGenerator.generate_drop_foreign_key(table, fk_name)
+    }
+    fn generate_add_unique(&self, table: &str, uc: &UniqueConstraint) -> String {
+        MySqlSqlGenerator.generate_add_unique(table, uc)
+    }
+    fn generate_drop_unique(&self, table: &str, uc_name: &str) -> String {
+        MySqlSqlGenerator.generate_drop_unique(table, uc_name)
     }
 }

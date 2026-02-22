@@ -246,4 +246,165 @@ describe("useConnections", () => {
     expect(result.current.isDeleting).toBe(false);
     expect(result.current.isTesting).toBe(false);
   });
+
+  it("should keep form open when saveConnection fails", async () => {
+    const newConnection: ConnectionInput = {
+      name: "New Connection",
+      db_type: "MySQL",
+      host: "localhost",
+      port: 3306,
+      username: "root",
+      password: "password",
+      database: "new_db",
+      ssh_enabled: false,
+      ssl_enabled: false,
+    };
+
+    mockInvoke
+      .mockResolvedValueOnce([]) // Initial list
+      .mockRejectedValueOnce(new Error("Save failed")); // Save fails
+
+    const { result } = renderHook(() => useConnections(), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.openNewConnection();
+    });
+
+    expect(result.current.isFormOpen).toBe(true);
+
+    try {
+      await act(async () => {
+        await result.current.saveConnection(newConnection);
+      });
+    } catch {
+      // Expected to throw
+    }
+
+    // Form should still be open because save failed
+    expect(result.current.isFormOpen).toBe(true);
+  });
+
+  it("should propagate error when deleteConnection fails", async () => {
+    mockInvoke
+      .mockResolvedValueOnce(mockConnections) // Initial list
+      .mockRejectedValueOnce(new Error("Delete failed")); // Delete fails
+
+    const { result } = renderHook(() => useConnections(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    await expect(
+      act(async () => {
+        await result.current.deleteConnection("test-id-1");
+      })
+    ).rejects.toThrow("Delete failed");
+  });
+
+  it("should reset editingConnection when openNewConnection is called after openEditConnection", async () => {
+    mockInvoke.mockResolvedValue(mockConnections);
+
+    const { result } = renderHook(() => useConnections(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.openEditConnection(mockConnection);
+    });
+
+    expect(result.current.editingConnection).toEqual(mockConnection);
+
+    act(() => {
+      result.current.openNewConnection();
+    });
+
+    expect(result.current.isFormOpen).toBe(true);
+    expect(result.current.editingConnection).toBe(null);
+  });
+
+  it("should call save_connection with id for update path", async () => {
+    const updateInput: ConnectionInput = {
+      id: "test-id-1",
+      name: "Updated Connection",
+      db_type: "MySQL",
+      host: "localhost",
+      port: 3306,
+      username: "root",
+      password: "password",
+      database: "test_db",
+      ssh_enabled: false,
+      ssl_enabled: false,
+    };
+
+    mockInvoke
+      .mockResolvedValueOnce([]) // Initial list
+      .mockResolvedValueOnce({ ...updateInput, id: "test-id-1" }) // Save (update)
+      .mockResolvedValueOnce([{ ...updateInput, id: "test-id-1" }]); // Refetch
+
+    const { result } = renderHook(() => useConnections(), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.openEditConnection(mockConnection);
+    });
+
+    await act(async () => {
+      await result.current.saveConnection(updateInput);
+    });
+
+    expect(mockInvoke).toHaveBeenCalledWith("save_connection", { input: updateInput });
+    expect(result.current.isFormOpen).toBe(false);
+  });
+
+  it("should handle test connection failure", async () => {
+    const connectionInput: ConnectionInput = {
+      name: "Test Connection",
+      db_type: "MySQL",
+      host: "localhost",
+      port: 3306,
+      username: "root",
+      password: "wrong_password",
+      database: "test_db",
+      ssh_enabled: false,
+      ssl_enabled: false,
+    };
+
+    mockInvoke
+      .mockResolvedValueOnce([]) // Initial list
+      .mockRejectedValueOnce(new Error("Connection refused"));
+
+    const { result } = renderHook(() => useConnections(), {
+      wrapper: createWrapper(),
+    });
+
+    await expect(
+      act(async () => {
+        await result.current.testConnection(connectionInput);
+      })
+    ).rejects.toThrow("Connection refused");
+  });
+
+  it("should return null error when no fetch error exists", async () => {
+    mockInvoke.mockResolvedValue(mockConnections);
+
+    const { result } = renderHook(() => useConnections(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.error).toBeNull();
+  });
 });
