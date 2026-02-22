@@ -257,7 +257,13 @@ describe("useSync", () => {
       result.current.setSelectedItems(new Set(["diff-1"]));
     });
 
-    expect(result.current.selectedSql).toBe("CREATE TABLE users (id INT PRIMARY KEY);");
+    // Should contain header, SQL body, and footer
+    expect(result.current.selectedSql).toContain("-- Database Structure Sync v");
+    expect(result.current.selectedSql).toContain("-- Generation Time:");
+    expect(result.current.selectedSql).toContain("-- Source:");
+    expect(result.current.selectedSql).toContain("-- Target:");
+    expect(result.current.selectedSql).toContain("CREATE TABLE users (id INT PRIMARY KEY);");
+    expect(result.current.selectedSql).toContain("-- End of synchronization script");
 
     act(() => {
       result.current.handleSelectAll();
@@ -265,6 +271,7 @@ describe("useSync", () => {
 
     expect(result.current.selectedSql).toContain("CREATE TABLE users");
     expect(result.current.selectedSql).toContain("ALTER TABLE posts");
+    expect(result.current.selectedSql).toContain("Changes:         2 item(s)");
   });
 
   it("should execute sync and refresh comparison", async () => {
