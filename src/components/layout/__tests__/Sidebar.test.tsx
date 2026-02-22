@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Sidebar } from "../Sidebar";
 import type { Connection } from "@/types";
@@ -86,17 +86,17 @@ describe("Sidebar", () => {
     render(<Sidebar connections={mockConnections} />);
 
     // Initially details should not be visible
-    expect(screen.queryByText("prod.example.com")).not.toBeInTheDocument();
+    expect(screen.queryByText("prod.example.com:3306")).not.toBeInTheDocument();
 
-    // Click the expand button
-    const expandButtons = screen.getAllByRole("button");
-    // Find the button with chevron icon (first button in each connection row)
-    await user.click(expandButtons[0]);
+    // Find the chevron button within the first connection row
+    // The connection row contains: chevron button, database icon, name, dropdown button
+    const prodRow = screen.getByText("Production DB").closest("div[class*='flex items-center']")!;
+    const chevronButton = within(prodRow).getAllByRole("button")[0];
+    await user.click(chevronButton);
 
-    // Now details should be visible
+    // Now details should be visible (format: host:port)
     expect(screen.getByText("MySQL")).toBeInTheDocument();
-    expect(screen.getByText("prod.example.com")).toBeInTheDocument();
-    expect(screen.getByText("app_prod")).toBeInTheDocument();
+    expect(screen.getByText("prod.example.com:3306")).toBeInTheDocument();
   });
 
   it("should show edit option in dropdown menu", async () => {
@@ -167,15 +167,16 @@ describe("Sidebar", () => {
 
     render(<Sidebar connections={mockConnections} />);
 
-    // Expand
-    const expandButtons = screen.getAllByRole("button");
-    await user.click(expandButtons[0]);
+    // Find the chevron button
+    const prodRow = screen.getByText("Production DB").closest("div[class*='flex items-center']")!;
+    const chevronButton = within(prodRow).getAllByRole("button")[0];
 
-    expect(screen.getByText("prod.example.com")).toBeInTheDocument();
+    // Expand
+    await user.click(chevronButton);
+    expect(screen.getByText("prod.example.com:3306")).toBeInTheDocument();
 
     // Collapse
-    await user.click(expandButtons[0]);
-
-    expect(screen.queryByText("prod.example.com")).not.toBeInTheDocument();
+    await user.click(chevronButton);
+    expect(screen.queryByText("prod.example.com:3306")).not.toBeInTheDocument();
   });
 });

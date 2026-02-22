@@ -65,6 +65,10 @@ vi.mock("sonner", () => ({
   },
 }));
 
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  save: vi.fn(),
+}));
+
 import { invoke } from "@tauri-apps/api/core";
 
 const mockInvoke = vi.mocked(invoke);
@@ -228,5 +232,144 @@ describe("SyncPage", () => {
 
     expect(screen.getByText("sync.source")).toBeInTheDocument();
     expect(screen.getByText("sync.target")).toBeInTheDocument();
+  });
+
+  it("should show sql.empty message when no items are selected after comparison", async () => {
+    const user = userEvent.setup();
+    mockInvoke.mockResolvedValue(mockDiffResult);
+
+    renderWithProviders(<SyncPage connections={mockConnections} />);
+
+    const comboboxes = screen.getAllByRole("combobox");
+
+    // Select connections
+    await user.click(comboboxes[0]);
+    await user.click(screen.getByText("Source DB (MySQL)"));
+    await user.click(comboboxes[1]);
+    await user.click(screen.getByText("Target DB (MySQL)"));
+
+    // Click compare
+    await user.click(screen.getByRole("button", { name: "sync.compare" }));
+
+    // Wait for diff results to appear
+    await waitFor(() => {
+      expect(screen.getByText("2 sync.changes")).toBeInTheDocument();
+    });
+
+    // No items selected, so SQL preview should show empty message
+    expect(screen.getByText("sql.empty")).toBeInTheDocument();
+  });
+
+  it("should have export SQL button disabled when no SQL to export", async () => {
+    const user = userEvent.setup();
+    mockInvoke.mockResolvedValue(mockDiffResult);
+
+    renderWithProviders(<SyncPage connections={mockConnections} />);
+
+    const comboboxes = screen.getAllByRole("combobox");
+
+    // Select connections
+    await user.click(comboboxes[0]);
+    await user.click(screen.getByText("Source DB (MySQL)"));
+    await user.click(comboboxes[1]);
+    await user.click(screen.getByText("Target DB (MySQL)"));
+
+    // Click compare
+    await user.click(screen.getByRole("button", { name: "sync.compare" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("2 sync.changes")).toBeInTheDocument();
+    });
+
+    // No items selected, export button should be disabled
+    const exportButton = screen.getByRole("button", { name: /sql\.export/ });
+    expect(exportButton).toBeDisabled();
+  });
+
+  it("should render expandAll and collapseAll buttons after comparison", async () => {
+    const user = userEvent.setup();
+    mockInvoke.mockResolvedValue(mockDiffResult);
+
+    renderWithProviders(<SyncPage connections={mockConnections} />);
+
+    const comboboxes = screen.getAllByRole("combobox");
+
+    // Select connections
+    await user.click(comboboxes[0]);
+    await user.click(screen.getByText("Source DB (MySQL)"));
+    await user.click(comboboxes[1]);
+    await user.click(screen.getByText("Target DB (MySQL)"));
+
+    // Click compare
+    await user.click(screen.getByRole("button", { name: "sync.compare" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "sync.expandAll" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "sync.collapseAll" })).toBeInTheDocument();
+    });
+  });
+
+  it("should expand all items when expandAll is clicked", async () => {
+    const user = userEvent.setup();
+    mockInvoke.mockResolvedValue(mockDiffResult);
+
+    renderWithProviders(<SyncPage connections={mockConnections} />);
+
+    const comboboxes = screen.getAllByRole("combobox");
+
+    // Select connections and compare
+    await user.click(comboboxes[0]);
+    await user.click(screen.getByText("Source DB (MySQL)"));
+    await user.click(comboboxes[1]);
+    await user.click(screen.getByText("Target DB (MySQL)"));
+    await user.click(screen.getByRole("button", { name: "sync.compare" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "sync.expandAll" })).toBeInTheDocument();
+    });
+
+    // Click expand all
+    await user.click(screen.getByRole("button", { name: "sync.expandAll" }));
+
+    // After expanding, individual diff items should be visible (e.g., column names)
+    await waitFor(() => {
+      // The diff items have object_name "title" for diff-2
+      expect(screen.getByText("title")).toBeInTheDocument();
+    });
+  });
+
+  it("should collapse all items when collapseAll is clicked after expanding", async () => {
+    const user = userEvent.setup();
+    mockInvoke.mockResolvedValue(mockDiffResult);
+
+    renderWithProviders(<SyncPage connections={mockConnections} />);
+
+    const comboboxes = screen.getAllByRole("combobox");
+
+    // Select connections and compare
+    await user.click(comboboxes[0]);
+    await user.click(screen.getByText("Source DB (MySQL)"));
+    await user.click(comboboxes[1]);
+    await user.click(screen.getByText("Target DB (MySQL)"));
+    await user.click(screen.getByRole("button", { name: "sync.compare" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "sync.expandAll" })).toBeInTheDocument();
+    });
+
+    // Expand all first
+    await user.click(screen.getByRole("button", { name: "sync.expandAll" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("title")).toBeInTheDocument();
+    });
+
+    // Now collapse all
+    await user.click(screen.getByRole("button", { name: "sync.collapseAll" }));
+
+    // After collapsing, the detail items should no longer be visible
+    await waitFor(() => {
+      expect(screen.queryByText("title")).not.toBeInTheDocument();
+    });
   });
 });

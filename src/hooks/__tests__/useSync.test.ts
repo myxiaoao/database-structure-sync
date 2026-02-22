@@ -76,7 +76,12 @@ vi.mock("sonner", () => ({
   },
 }));
 
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  save: vi.fn(),
+}));
+
 import { invoke } from "@tauri-apps/api/core";
+import { save } from "@tauri-apps/plugin-dialog";
 
 const mockInvoke = vi.mocked(invoke);
 
@@ -352,5 +357,218 @@ describe("useSync", () => {
     });
 
     expect(mockInvoke).not.toHaveBeenCalledWith("compare_databases", expect.anything());
+  });
+
+  it("should generate PostgreSQL SQL header/footer for PostgreSQL connections", async () => {
+    const pgConnections: Connection[] = [
+      {
+        id: "pg-source",
+        name: "PG Source",
+        db_type: "PostgreSQL",
+        host: "localhost",
+        port: 5432,
+        username: "postgres",
+        password: "password",
+        database: "source_db",
+        ssh_enabled: false,
+        ssl_enabled: false,
+      },
+      {
+        id: "pg-target",
+        name: "PG Target",
+        db_type: "PostgreSQL",
+        host: "localhost",
+        port: 5432,
+        username: "postgres",
+        password: "password",
+        database: "target_db",
+        ssh_enabled: false,
+        ssl_enabled: false,
+      },
+    ];
+
+    mockInvoke.mockResolvedValue(mockDiffResult);
+
+    const { result } = renderHook(() => useSync({ connections: pgConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("pg-source");
+      result.current.setTargetId("pg-target");
+    });
+
+    await act(async () => {
+      await result.current.handleCompare();
+    });
+
+    act(() => {
+      result.current.handleSelectAll();
+    });
+
+    // PostgreSQL header should contain SET statement_timeout and SET client_encoding
+    expect(result.current.selectedSql).toContain("SET statement_timeout = 0;");
+    expect(result.current.selectedSql).toContain("SET client_encoding = 'UTF8';");
+    // Should NOT contain MySQL-specific header
+    expect(result.current.selectedSql).not.toContain("SET NAMES utf8mb4");
+    expect(result.current.selectedSql).not.toContain("FOREIGN_KEY_CHECKS");
+  });
+
+  it("should not call execute_sync when no items are selected", async () => {
+    mockInvoke.mockResolvedValue(mockDiffResult);
+
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("source-id");
+      result.current.setTargetId("target-id");
+    });
+
+    await act(async () => {
+      await result.current.handleCompare();
+    });
+
+    // Do NOT select any items, then execute
+    await act(async () => {
+      await result.current.handleExecute();
+    });
+
+    expect(mockInvoke).not.toHaveBeenCalledWith("execute_sync", expect.anything());
+  });
+
+  it("should not call execute_sync when targetId is empty", async () => {
+    mockInvoke.mockResolvedValue(mockDiffResult);
+
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    // Only set sourceId, but NOT targetId
+    act(() => {
+      result.current.setSourceId("source-id");
+    });
+
+    // handleExecute should bail out because targetId is empty
+    await act(async () => {
+      await result.current.handleExecute();
+    });
+
+    expect(mockInvoke).not.toHaveBeenCalledWith("execute_sync", expect.anything());
+  });
+
+  it("should return empty string for selectedSql when diffResult is null", () => {
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.selectedSql).toBe("");
+  });
+
+  it("should return empty string for selectedSql when no items are selected", async () => {
+    mockInvoke.mockResolvedValue(mockDiffResult);
+
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("source-id");
+      result.current.setTargetId("target-id");
+    });
+
+    await act(async () => {
+      await result.current.handleCompare();
+    });
+
+    // diffResult exists but no items selected
+    expect(result.current.selectedSql).toBe("");
+  });
+
+  it("should export SQL via save dialog and saveSqlFile", async () => {
+    const mockSave = vi.mocked(save);
+    mockSave.mockResolvedValue("/tmp/sync.sql");
+    mockInvoke
+      .mockResolvedValueOnce(mockDiffResult) // compare
+      .mockResolvedValueOnce(undefined); // saveSqlFile
+
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("source-id");
+      result.current.setTargetId("target-id");
+    });
+
+    await act(async () => {
+      await result.current.handleCompare();
+    });
+
+    act(() => {
+      result.current.handleSelectAll();
+    });
+
+    let exportResult: boolean = false;
+    await act(async () => {
+      exportResult = await result.current.handleExportSql();
+    });
+
+    expect(exportResult).toBe(true);
+    expect(mockSave).toHaveBeenCalledWith({
+      defaultPath: "sync.sql",
+      filters: [{ name: "SQL", extensions: ["sql"] }],
+    });
+    expect(mockInvoke).toHaveBeenCalledWith("save_sql_file", {
+      filePath: "/tmp/sync.sql",
+      content: expect.stringContaining("CREATE TABLE users"),
+    });
+  });
+
+  it("should return false from handleExportSql when user cancels save dialog", async () => {
+    const mockSave = vi.mocked(save);
+    mockSave.mockResolvedValue(null);
+    mockInvoke.mockResolvedValue(mockDiffResult);
+
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.setSourceId("source-id");
+      result.current.setTargetId("target-id");
+    });
+
+    await act(async () => {
+      await result.current.handleCompare();
+    });
+
+    act(() => {
+      result.current.handleSelectAll();
+    });
+
+    let exportResult: boolean = true;
+    await act(async () => {
+      exportResult = await result.current.handleExportSql();
+    });
+
+    expect(exportResult).toBe(false);
+    // save_sql_file should NOT be called since the dialog was cancelled
+    expect(mockInvoke).not.toHaveBeenCalledWith("save_sql_file", expect.anything());
+  });
+
+  it("should return false from handleExportSql when no SQL to export", async () => {
+    const { result } = renderHook(() => useSync({ connections: mockConnections }), {
+      wrapper: createWrapper(),
+    });
+
+    // No comparison done, selectedSql is empty
+    let exportResult: boolean = true;
+    await act(async () => {
+      exportResult = await result.current.handleExportSql();
+    });
+
+    expect(exportResult).toBe(false);
   });
 });

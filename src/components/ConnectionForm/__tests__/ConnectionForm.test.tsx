@@ -314,4 +314,154 @@ describe("ConnectionForm", () => {
 
     expect(screen.queryByLabelText("connection.name")).not.toBeInTheDocument();
   });
+
+  it("should show error message when save fails with Error", async () => {
+    const user = userEvent.setup();
+    mockOnSave.mockRejectedValue(new Error("Save failed: duplicate name"));
+
+    renderWithProviders(
+      <ConnectionForm
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        connection={mockConnection}
+        onSave={mockOnSave}
+        onTest={mockOnTest}
+      />
+    );
+
+    const saveButton = screen.getByRole("button", { name: "connection.save" });
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("Save failed: duplicate name")).toBeInTheDocument();
+    });
+
+    // onOpenChange should NOT have been called with false since save failed
+    expect(mockOnOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it("should show stringified error message when save fails with non-Error", async () => {
+    const user = userEvent.setup();
+    mockOnSave.mockRejectedValue("raw string error");
+
+    renderWithProviders(
+      <ConnectionForm
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        connection={mockConnection}
+        onSave={mockOnSave}
+        onTest={mockOnTest}
+      />
+    );
+
+    const saveButton = screen.getByRole("button", { name: "connection.save" });
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("raw string error")).toBeInTheDocument();
+    });
+  });
+
+  it("should show stringified error message when test fails with non-Error", async () => {
+    const user = userEvent.setup();
+    mockOnTest.mockRejectedValue("test string error");
+
+    renderWithProviders(
+      <ConnectionForm
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        connection={mockConnection}
+        onSave={mockOnSave}
+        onTest={mockOnTest}
+      />
+    );
+
+    const testButton = screen.getByRole("button", { name: "connection.test" });
+    await user.click(testButton);
+
+    await waitFor(() => {
+      expect(screen.getByText("test string error")).toBeInTheDocument();
+    });
+  });
+
+  it("should show private key fields when SSH auth method is PrivateKey", async () => {
+    const user = userEvent.setup();
+
+    renderWithProviders(
+      <ConnectionForm
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        onSave={mockOnSave}
+        onTest={mockOnTest}
+      />
+    );
+
+    // Switch to SSH tab
+    const sshTab = screen.getByRole("tab", { name: "connection.sshTab" });
+    await user.click(sshTab);
+
+    // Enable SSH
+    const sshCheckbox = screen.getByRole("checkbox", { name: "connection.sshEnabled" });
+    await user.click(sshCheckbox);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("connection.sshHost")).toBeInTheDocument();
+    });
+
+    // Default auth method is Password, so ssh_password field should be visible
+    expect(screen.getByLabelText("connection.sshPasswordField")).toBeInTheDocument();
+
+    // Switch auth method to PrivateKey
+    // There are two comboboxes: db_type (in basic tab, hidden) and ssh_auth_method
+    const authComboboxes = screen.getAllByRole("combobox");
+    // The SSH auth method combobox is the last one visible
+    const authSelect = authComboboxes[authComboboxes.length - 1];
+    await user.click(authSelect);
+
+    const privateKeyOption = screen.getByRole("option", { name: "connection.sshPrivateKey" });
+    await user.click(privateKeyOption);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("connection.sshPrivateKeyPath")).toBeInTheDocument();
+      expect(screen.getByLabelText("connection.sshPassphrase")).toBeInTheDocument();
+    });
+
+    // Password field should no longer be visible
+    expect(screen.queryByLabelText("connection.sshPasswordField")).not.toBeInTheDocument();
+  });
+
+  it("should reset form to defaults when connection changes from existing to null", async () => {
+    const { rerender } = renderWithProviders(
+      <ConnectionForm
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        connection={mockConnection}
+        onSave={mockOnSave}
+        onTest={mockOnTest}
+      />
+    );
+
+    // Verify the form has connection values
+    expect(screen.getByLabelText("connection.name")).toHaveValue("Test Connection");
+    expect(screen.getByLabelText("connection.username")).toHaveValue("root");
+
+    // Rerender with connection set to null (simulating dialog close and reopen for new)
+    rerender(
+      <ConnectionForm
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        connection={null}
+        onSave={mockOnSave}
+        onTest={mockOnTest}
+      />
+    );
+
+    // Form should reset to defaults
+    await waitFor(() => {
+      expect(screen.getByLabelText("connection.name")).toHaveValue("");
+      expect(screen.getByLabelText("connection.host")).toHaveValue("localhost");
+      expect(screen.getByLabelText("connection.port")).toHaveValue(3306);
+      expect(screen.getByLabelText("connection.username")).toHaveValue("");
+    });
+  });
 });

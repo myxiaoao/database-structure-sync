@@ -17,7 +17,10 @@ export default defineConfig({
         '**/*.d.ts',
         'src/main.tsx',
         'src/vite-env.d.ts',
+        'coverage/**',
+        'src-tauri/**',
       ],
+      include: ['src/**/*.{ts,tsx}'],
     },
   },
   resolve: {

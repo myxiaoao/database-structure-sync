@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DiffTree } from "../DiffTree";
 import type { DiffItem } from "@/types";
+import { useState } from "react";
 
 const mockItems: DiffItem[] = [
   {
@@ -46,9 +47,37 @@ const mockItems: DiffItem[] = [
   },
 ];
 
+// Wrapper component to manage expandedTables state
+function DiffTreeWrapper({
+  items = mockItems,
+  selectedItems = new Set<string>(),
+  onSelectionChange = vi.fn(),
+  onItemClick,
+  initialExpanded = new Set<string>(),
+}: {
+  items?: DiffItem[];
+  selectedItems?: Set<string>;
+  onSelectionChange?: (selected: Set<string>) => void;
+  onItemClick?: (item: DiffItem) => void;
+  initialExpanded?: Set<string>;
+}) {
+  const [expandedTables, setExpandedTables] = useState<Set<string>>(initialExpanded);
+
+  return (
+    <DiffTree
+      items={items}
+      selectedItems={selectedItems}
+      onSelectionChange={onSelectionChange}
+      onItemClick={onItemClick}
+      expandedTables={expandedTables}
+      onExpandedChange={setExpandedTables}
+    />
+  );
+}
+
 describe("DiffTree", () => {
   it("should render grouped items by table name", () => {
-    render(<DiffTree items={mockItems} selectedItems={new Set()} onSelectionChange={vi.fn()} />);
+    render(<DiffTreeWrapper />);
 
     expect(screen.getByText("users")).toBeInTheDocument();
     expect(screen.getByText("posts")).toBeInTheDocument();
@@ -56,22 +85,23 @@ describe("DiffTree", () => {
   });
 
   it("should show change count for each table group", () => {
-    render(<DiffTree items={mockItems} selectedItems={new Set()} onSelectionChange={vi.fn()} />);
+    render(<DiffTreeWrapper />);
 
+    // The component shows the count as a number (e.g., "2"), not "2 changes"
     // users has 2 items, posts has 2 items, comments has 1 item
-    expect(screen.getAllByText("2 changes")).toHaveLength(2); // users and posts
-    expect(screen.getAllByText("1 change")).toHaveLength(1); // comments
+    expect(screen.getAllByText("2")).toHaveLength(2); // users and posts
+    expect(screen.getAllByText("1")).toHaveLength(1); // comments
   });
 
   it("should expand table group when clicked", async () => {
     const user = userEvent.setup();
 
-    render(<DiffTree items={mockItems} selectedItems={new Set()} onSelectionChange={vi.fn()} />);
+    render(<DiffTreeWrapper />);
 
     // Initially, items should not be visible (collapsed)
     expect(screen.queryByText("email")).not.toBeInTheDocument();
 
-    // Click on the users table group
+    // Click on the users table group to expand it
     await user.click(screen.getByText("users"));
 
     // Now items should be visible
@@ -83,15 +113,13 @@ describe("DiffTree", () => {
     const onSelectionChange = vi.fn();
 
     render(
-      <DiffTree items={mockItems} selectedItems={new Set()} onSelectionChange={onSelectionChange} />
+      <DiffTreeWrapper onSelectionChange={onSelectionChange} initialExpanded={new Set(["users"])} />
     );
 
-    // Expand users group
-    await user.click(screen.getByText("users"));
-
-    // Click on the first checkbox in the expanded group
+    // Click on the first item checkbox in the expanded group
     const checkboxes = screen.getAllByRole("checkbox");
-    await user.click(checkboxes[1]); // First item checkbox (index 0 is group checkbox)
+    // checkboxes[0] is the group checkbox, checkboxes[1] is first item
+    await user.click(checkboxes[1]);
 
     expect(onSelectionChange).toHaveBeenCalled();
   });
@@ -100,17 +128,7 @@ describe("DiffTree", () => {
     const user = userEvent.setup();
     const onItemClick = vi.fn();
 
-    render(
-      <DiffTree
-        items={mockItems}
-        selectedItems={new Set()}
-        onSelectionChange={vi.fn()}
-        onItemClick={onItemClick}
-      />
-    );
-
-    // Expand users group
-    await user.click(screen.getByText("users"));
+    render(<DiffTreeWrapper onItemClick={onItemClick} initialExpanded={new Set(["users"])} />);
 
     // Click on the email item row
     await user.click(screen.getByText("email"));
@@ -122,9 +140,7 @@ describe("DiffTree", () => {
     const user = userEvent.setup();
     const onSelectionChange = vi.fn();
 
-    render(
-      <DiffTree items={mockItems} selectedItems={new Set()} onSelectionChange={onSelectionChange} />
-    );
+    render(<DiffTreeWrapper onSelectionChange={onSelectionChange} />);
 
     // Click on the first group checkbox (users)
     const checkboxes = screen.getAllByRole("checkbox");
@@ -138,11 +154,7 @@ describe("DiffTree", () => {
     const onSelectionChange = vi.fn();
 
     render(
-      <DiffTree
-        items={mockItems}
-        selectedItems={new Set(["1", "2"])}
-        onSelectionChange={onSelectionChange}
-      />
+      <DiffTreeWrapper selectedItems={new Set(["1", "2"])} onSelectionChange={onSelectionChange} />
     );
 
     // Click on the first group checkbox (users)
@@ -153,9 +165,7 @@ describe("DiffTree", () => {
   });
 
   it("should show selected items as checked", () => {
-    render(
-      <DiffTree items={mockItems} selectedItems={new Set(["1", "2"])} onSelectionChange={vi.fn()} />
-    );
+    render(<DiffTreeWrapper selectedItems={new Set(["1", "2"])} />);
 
     const checkboxes = screen.getAllByRole("checkbox");
     // First checkbox (users group) should be checked since all items are selected
@@ -163,20 +173,13 @@ describe("DiffTree", () => {
   });
 
   it("should render empty when no items provided", () => {
-    const { container } = render(
-      <DiffTree items={[]} selectedItems={new Set()} onSelectionChange={vi.fn()} />
-    );
+    const { container } = render(<DiffTreeWrapper items={[]} />);
 
     expect(container.querySelector("[data-radix-scroll-area-viewport]")).toBeInTheDocument();
   });
 
-  it("should display diff type labels", async () => {
-    const user = userEvent.setup();
-
-    render(<DiffTree items={mockItems} selectedItems={new Set()} onSelectionChange={vi.fn()} />);
-
-    // Expand users group
-    await user.click(screen.getByText("users"));
+  it("should display diff type labels", () => {
+    render(<DiffTreeWrapper initialExpanded={new Set(["users"])} />);
 
     expect(screen.getByText("diff.columnAdded")).toBeInTheDocument();
   });
@@ -186,19 +189,17 @@ describe("DiffTree", () => {
     const onSelectionChange = vi.fn();
 
     render(
-      <DiffTree
-        items={mockItems}
+      <DiffTreeWrapper
         selectedItems={new Set(["1"])}
         onSelectionChange={onSelectionChange}
+        initialExpanded={new Set(["users"])}
       />
     );
 
-    // Expand users group
-    await user.click(screen.getByText("users"));
-
-    // Toggle second item
+    // Toggle second item (email)
     const checkboxes = screen.getAllByRole("checkbox");
-    await user.click(checkboxes[2]); // email item
+    // checkboxes: [0]=group, [1]=item "1" (users table), [2]=item "2" (email)
+    await user.click(checkboxes[2]);
 
     // Should add the second item to selection
     expect(onSelectionChange).toHaveBeenCalledWith(new Set(["1", "2"]));

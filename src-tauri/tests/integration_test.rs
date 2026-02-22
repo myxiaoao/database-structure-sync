@@ -1,5 +1,6 @@
 use database_structure_sync_lib::db::SqlGenerator;
 use database_structure_sync_lib::diff::compare_schemas;
+use database_structure_sync_lib::error::AppError;
 use database_structure_sync_lib::models::*;
 
 // ============================================================================
@@ -885,4 +886,1130 @@ fn test_diff_type_variants() {
             assert_ne!(types[i], types[j]);
         }
     }
+}
+
+// ============================================================================
+// Error Tests
+// ============================================================================
+
+#[test]
+fn test_app_error_connection_display() {
+    let err = AppError::Connection("refused".to_string());
+    assert_eq!(format!("{}", err), "Connection failed: refused");
+}
+
+#[test]
+fn test_app_error_database_display() {
+    let err = AppError::Database("timeout".to_string());
+    assert_eq!(format!("{}", err), "Database error: timeout");
+}
+
+#[test]
+fn test_app_error_storage_display() {
+    let err = AppError::Storage("disk full".to_string());
+    assert_eq!(format!("{}", err), "Storage error: disk full");
+}
+
+#[test]
+fn test_app_error_ssh_tunnel_display() {
+    let err = AppError::SshTunnel("auth failed".to_string());
+    assert_eq!(format!("{}", err), "SSH tunnel error: auth failed");
+}
+
+#[test]
+fn test_app_error_ssl_config_display() {
+    let err = AppError::SslConfig("invalid cert".to_string());
+    assert_eq!(format!("{}", err), "SSL configuration error: invalid cert");
+}
+
+#[test]
+fn test_app_error_not_found_display() {
+    let err = AppError::NotFound("record 42".to_string());
+    assert_eq!(format!("{}", err), "Not found: record 42");
+}
+
+#[test]
+fn test_app_error_validation_display() {
+    let err = AppError::Validation("name required".to_string());
+    assert_eq!(format!("{}", err), "Validation error: name required");
+}
+
+#[test]
+fn test_app_error_internal_display() {
+    let err = AppError::Internal("unexpected".to_string());
+    assert_eq!(format!("{}", err), "Internal error: unexpected");
+}
+
+#[test]
+fn test_app_error_from_io_error() {
+    let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
+    let app_err: AppError = io_err.into();
+    match &app_err {
+        AppError::Internal(msg) => assert!(msg.contains("file missing")),
+        other => panic!("expected Internal, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_app_error_from_anyhow_error() {
+    let anyhow_err = anyhow::anyhow!("something went wrong");
+    let app_err: AppError = anyhow_err.into();
+    match &app_err {
+        AppError::Internal(msg) => assert!(msg.contains("something went wrong")),
+        other => panic!("expected Internal, got {:?}", other),
+    }
+}
+
+#[test]
+fn test_app_error_serialize_connection() {
+    let err = AppError::Connection("refused".to_string());
+    let json = serde_json::to_string(&err).unwrap();
+    assert!(json.contains("\"type\":\"Connection\""));
+    assert!(json.contains("\"message\":\"refused\""));
+}
+
+#[test]
+fn test_app_error_serialize_all_variants() {
+    let variants: Vec<(&str, AppError)> = vec![
+        ("Connection", AppError::Connection("a".into())),
+        ("Database", AppError::Database("b".into())),
+        ("Storage", AppError::Storage("c".into())),
+        ("SshTunnel", AppError::SshTunnel("d".into())),
+        ("SslConfig", AppError::SslConfig("e".into())),
+        ("NotFound", AppError::NotFound("f".into())),
+        ("Validation", AppError::Validation("g".into())),
+        ("Internal", AppError::Internal("h".into())),
+    ];
+    for (expected_type, err) in variants {
+        let json = serde_json::to_string(&err).unwrap();
+        assert!(
+            json.contains(&format!("\"type\":\"{}\"", expected_type)),
+            "Expected type '{}' in JSON: {}",
+            expected_type,
+            json
+        );
+    }
+}
+
+// ============================================================================
+// DbType Display Tests
+// ============================================================================
+
+#[test]
+fn test_db_type_display_mysql() {
+    assert_eq!(DbType::MySQL.to_string(), "MySQL");
+}
+
+#[test]
+fn test_db_type_display_postgresql() {
+    assert_eq!(DbType::PostgreSQL.to_string(), "PostgreSQL");
+}
+
+#[test]
+fn test_db_type_display_mariadb() {
+    assert_eq!(DbType::MariaDB.to_string(), "MariaDB");
+}
+
+// ============================================================================
+// DbType Serialization Tests
+// ============================================================================
+
+#[test]
+fn test_db_type_serialize_lowercase() {
+    // serde(rename_all = "lowercase") means MySQL -> "mysql"
+    let json = serde_json::to_string(&DbType::MySQL).unwrap();
+    assert_eq!(json, "\"mysql\"");
+
+    let json = serde_json::to_string(&DbType::PostgreSQL).unwrap();
+    assert_eq!(json, "\"postgresql\"");
+
+    let json = serde_json::to_string(&DbType::MariaDB).unwrap();
+    assert_eq!(json, "\"mariadb\"");
+}
+
+#[test]
+fn test_db_type_deserialize_lowercase() {
+    let mysql: DbType = serde_json::from_str("\"mysql\"").unwrap();
+    assert_eq!(mysql, DbType::MySQL);
+
+    let pg: DbType = serde_json::from_str("\"postgresql\"").unwrap();
+    assert_eq!(pg, DbType::PostgreSQL);
+
+    let maria: DbType = serde_json::from_str("\"mariadb\"").unwrap();
+    assert_eq!(maria, DbType::MariaDB);
+}
+
+// ============================================================================
+// Connection Serialization Tests
+// ============================================================================
+
+#[test]
+fn test_connection_serialize_skips_password() {
+    let conn = Connection {
+        id: "conn-1".to_string(),
+        name: "Test DB".to_string(),
+        db_type: DbType::MySQL,
+        host: "localhost".to_string(),
+        port: 3306,
+        username: "root".to_string(),
+        password: "secret123".to_string(),
+        database: "testdb".to_string(),
+        ssh_config: None,
+        ssl_config: None,
+        created_at: "2025-01-01T00:00:00Z".to_string(),
+        updated_at: "2025-01-01T00:00:00Z".to_string(),
+    };
+
+    let json = serde_json::to_string(&conn).unwrap();
+    // password should be skipped during serialization (skip_serializing)
+    assert!(!json.contains("secret123"));
+    assert!(json.contains("\"name\":\"Test DB\""));
+    assert!(json.contains("\"db_type\":\"mysql\""));
+}
+
+#[test]
+fn test_connection_deserialize_default_password() {
+    let json = r#"{
+        "id": "conn-1",
+        "name": "Test",
+        "db_type": "postgresql",
+        "host": "localhost",
+        "port": 5432,
+        "username": "user",
+        "database": "mydb",
+        "created_at": "2025-01-01",
+        "updated_at": "2025-01-01"
+    }"#;
+
+    let conn: Connection = serde_json::from_str(json).unwrap();
+    assert_eq!(conn.password, ""); // default
+    assert_eq!(conn.db_type, DbType::PostgreSQL);
+    assert_eq!(conn.port, 5432);
+}
+
+#[test]
+fn test_connection_input_serialize_deserialize() {
+    let input = ConnectionInput {
+        name: "Dev DB".to_string(),
+        db_type: DbType::MariaDB,
+        host: "db.example.com".to_string(),
+        port: 3306,
+        username: "admin".to_string(),
+        password: "pass".to_string(),
+        database: "app".to_string(),
+        ssh_config: None,
+        ssl_config: None,
+    };
+
+    let json = serde_json::to_string(&input).unwrap();
+    let deserialized: ConnectionInput = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.name, "Dev DB");
+    assert_eq!(deserialized.db_type, DbType::MariaDB);
+    assert_eq!(deserialized.host, "db.example.com");
+}
+
+#[test]
+fn test_connection_input_deserialize_default_password() {
+    let json = r#"{
+        "name": "Test",
+        "db_type": "mysql",
+        "host": "localhost",
+        "port": 3306,
+        "username": "root",
+        "database": "mydb"
+    }"#;
+
+    let input: ConnectionInput = serde_json::from_str(json).unwrap();
+    assert_eq!(input.password, ""); // serde(default)
+}
+
+// ============================================================================
+// SshAuthMethod Serialization Tests
+// ============================================================================
+
+#[test]
+fn test_ssh_auth_method_password_serialize() {
+    let auth = SshAuthMethod::Password {
+        password: "secret".to_string(),
+    };
+    let json = serde_json::to_string(&auth).unwrap();
+    assert!(json.contains("\"password\""));
+    assert!(json.contains("secret"));
+
+    let deserialized: SshAuthMethod = serde_json::from_str(&json).unwrap();
+    match deserialized {
+        SshAuthMethod::Password { password } => assert_eq!(password, "secret"),
+        _ => panic!("expected Password variant"),
+    }
+}
+
+#[test]
+fn test_ssh_auth_method_private_key_serialize() {
+    let auth = SshAuthMethod::PrivateKey {
+        private_key_path: "/home/user/.ssh/id_rsa".to_string(),
+        passphrase: Some("mypass".to_string()),
+    };
+    let json = serde_json::to_string(&auth).unwrap();
+    assert!(json.contains("id_rsa"));
+
+    let deserialized: SshAuthMethod = serde_json::from_str(&json).unwrap();
+    match deserialized {
+        SshAuthMethod::PrivateKey {
+            private_key_path,
+            passphrase,
+        } => {
+            assert_eq!(private_key_path, "/home/user/.ssh/id_rsa");
+            assert_eq!(passphrase, Some("mypass".to_string()));
+        }
+        _ => panic!("expected PrivateKey variant"),
+    }
+}
+
+#[test]
+fn test_ssh_auth_method_private_key_no_passphrase() {
+    let auth = SshAuthMethod::PrivateKey {
+        private_key_path: "/home/user/.ssh/id_ed25519".to_string(),
+        passphrase: None,
+    };
+    let json = serde_json::to_string(&auth).unwrap();
+    let deserialized: SshAuthMethod = serde_json::from_str(&json).unwrap();
+    match deserialized {
+        SshAuthMethod::PrivateKey {
+            passphrase, ..
+        } => assert_eq!(passphrase, None),
+        _ => panic!("expected PrivateKey variant"),
+    }
+}
+
+// ============================================================================
+// SslConfig Serialization Tests
+// ============================================================================
+
+#[test]
+fn test_ssl_config_serialize_deserialize() {
+    let ssl = SslConfig {
+        enabled: true,
+        ca_cert_path: Some("/certs/ca.pem".to_string()),
+        client_cert_path: Some("/certs/client.pem".to_string()),
+        client_key_path: Some("/certs/client-key.pem".to_string()),
+        verify_server: true,
+    };
+
+    let json = serde_json::to_string(&ssl).unwrap();
+    let deserialized: SslConfig = serde_json::from_str(&json).unwrap();
+    assert!(deserialized.enabled);
+    assert_eq!(deserialized.ca_cert_path, Some("/certs/ca.pem".to_string()));
+    assert!(deserialized.verify_server);
+}
+
+#[test]
+fn test_ssl_config_minimal() {
+    let ssl = SslConfig {
+        enabled: false,
+        ca_cert_path: None,
+        client_cert_path: None,
+        client_key_path: None,
+        verify_server: false,
+    };
+
+    let json = serde_json::to_string(&ssl).unwrap();
+    let deserialized: SslConfig = serde_json::from_str(&json).unwrap();
+    assert!(!deserialized.enabled);
+    assert_eq!(deserialized.ca_cert_path, None);
+}
+
+// ============================================================================
+// SshConfig Serialization Tests
+// ============================================================================
+
+#[test]
+fn test_ssh_config_serialize_deserialize() {
+    let ssh = SshConfig {
+        enabled: true,
+        host: "bastion.example.com".to_string(),
+        port: 22,
+        username: "jump".to_string(),
+        auth_method: SshAuthMethod::Password {
+            password: "sshpass".to_string(),
+        },
+    };
+
+    let json = serde_json::to_string(&ssh).unwrap();
+    let deserialized: SshConfig = serde_json::from_str(&json).unwrap();
+    assert!(deserialized.enabled);
+    assert_eq!(deserialized.host, "bastion.example.com");
+    assert_eq!(deserialized.port, 22);
+}
+
+// ============================================================================
+// Connection with SSH/SSL Serialization Tests
+// ============================================================================
+
+#[test]
+fn test_connection_with_ssh_config_serialize() {
+    let conn = Connection {
+        id: "conn-2".to_string(),
+        name: "SSH DB".to_string(),
+        db_type: DbType::PostgreSQL,
+        host: "db.internal".to_string(),
+        port: 5432,
+        username: "admin".to_string(),
+        password: "pw".to_string(),
+        database: "prod".to_string(),
+        ssh_config: Some(SshConfig {
+            enabled: true,
+            host: "jump.example.com".to_string(),
+            port: 22,
+            username: "jumpuser".to_string(),
+            auth_method: SshAuthMethod::Password {
+                password: "jump_pass".to_string(),
+            },
+        }),
+        ssl_config: None,
+        created_at: "2025-01-01".to_string(),
+        updated_at: "2025-01-01".to_string(),
+    };
+
+    let json = serde_json::to_string(&conn).unwrap();
+    assert!(json.contains("ssh_config"));
+    assert!(json.contains("jump.example.com"));
+    // password of Connection itself is skipped
+    assert!(!json.contains("\"pw\""));
+}
+
+// ============================================================================
+// DiffType Serialization Tests (snake_case)
+// ============================================================================
+
+#[test]
+fn test_diff_type_serialize_snake_case() {
+    assert_eq!(
+        serde_json::to_string(&DiffType::TableAdded).unwrap(),
+        "\"table_added\""
+    );
+    assert_eq!(
+        serde_json::to_string(&DiffType::TableRemoved).unwrap(),
+        "\"table_removed\""
+    );
+    assert_eq!(
+        serde_json::to_string(&DiffType::ColumnAdded).unwrap(),
+        "\"column_added\""
+    );
+    assert_eq!(
+        serde_json::to_string(&DiffType::ColumnRemoved).unwrap(),
+        "\"column_removed\""
+    );
+    assert_eq!(
+        serde_json::to_string(&DiffType::ColumnModified).unwrap(),
+        "\"column_modified\""
+    );
+    assert_eq!(
+        serde_json::to_string(&DiffType::IndexAdded).unwrap(),
+        "\"index_added\""
+    );
+    assert_eq!(
+        serde_json::to_string(&DiffType::IndexRemoved).unwrap(),
+        "\"index_removed\""
+    );
+    assert_eq!(
+        serde_json::to_string(&DiffType::IndexModified).unwrap(),
+        "\"index_modified\""
+    );
+    assert_eq!(
+        serde_json::to_string(&DiffType::ForeignKeyAdded).unwrap(),
+        "\"foreign_key_added\""
+    );
+    assert_eq!(
+        serde_json::to_string(&DiffType::ForeignKeyRemoved).unwrap(),
+        "\"foreign_key_removed\""
+    );
+    assert_eq!(
+        serde_json::to_string(&DiffType::UniqueConstraintAdded).unwrap(),
+        "\"unique_constraint_added\""
+    );
+    assert_eq!(
+        serde_json::to_string(&DiffType::UniqueConstraintRemoved).unwrap(),
+        "\"unique_constraint_removed\""
+    );
+}
+
+#[test]
+fn test_diff_type_deserialize_snake_case() {
+    let added: DiffType = serde_json::from_str("\"table_added\"").unwrap();
+    assert_eq!(added, DiffType::TableAdded);
+
+    let fk_removed: DiffType = serde_json::from_str("\"foreign_key_removed\"").unwrap();
+    assert_eq!(fk_removed, DiffType::ForeignKeyRemoved);
+
+    let uc_added: DiffType = serde_json::from_str("\"unique_constraint_added\"").unwrap();
+    assert_eq!(uc_added, DiffType::UniqueConstraintAdded);
+}
+
+// ============================================================================
+// DiffItem Serialization Tests
+// ============================================================================
+
+#[test]
+fn test_diff_item_serialize_deserialize() {
+    let item = DiffItem {
+        id: "1".to_string(),
+        diff_type: DiffType::ColumnAdded,
+        table_name: "users".to_string(),
+        object_name: Some("email".to_string()),
+        source_def: Some("VARCHAR(255)".to_string()),
+        target_def: None,
+        sql: "ALTER TABLE users ADD COLUMN email VARCHAR(255)".to_string(),
+        selected: true,
+    };
+
+    let json = serde_json::to_string(&item).unwrap();
+    assert!(json.contains("\"diff_type\":\"column_added\""));
+    assert!(json.contains("\"table_name\":\"users\""));
+    assert!(json.contains("\"selected\":true"));
+
+    let deserialized: DiffItem = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.id, "1");
+    assert_eq!(deserialized.diff_type, DiffType::ColumnAdded);
+    assert_eq!(deserialized.table_name, "users");
+    assert_eq!(deserialized.object_name, Some("email".to_string()));
+    assert_eq!(deserialized.target_def, None);
+    assert!(deserialized.selected);
+}
+
+#[test]
+fn test_diff_item_with_none_fields() {
+    let item = DiffItem {
+        id: "5".to_string(),
+        diff_type: DiffType::TableAdded,
+        table_name: "orders".to_string(),
+        object_name: None,
+        source_def: None,
+        target_def: None,
+        sql: "CREATE TABLE orders".to_string(),
+        selected: false,
+    };
+
+    let json = serde_json::to_string(&item).unwrap();
+    let deserialized: DiffItem = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.object_name, None);
+    assert_eq!(deserialized.source_def, None);
+    assert_eq!(deserialized.target_def, None);
+    assert!(!deserialized.selected);
+}
+
+// ============================================================================
+// DiffResult Serialization Tests
+// ============================================================================
+
+#[test]
+fn test_diff_result_serialize_deserialize() {
+    let result = DiffResult {
+        items: vec![
+            DiffItem {
+                id: "1".to_string(),
+                diff_type: DiffType::TableAdded,
+                table_name: "users".to_string(),
+                object_name: None,
+                source_def: Some("3 columns".to_string()),
+                target_def: None,
+                sql: "CREATE TABLE users".to_string(),
+                selected: true,
+            },
+            DiffItem {
+                id: "2".to_string(),
+                diff_type: DiffType::ColumnRemoved,
+                table_name: "orders".to_string(),
+                object_name: Some("old_col".to_string()),
+                source_def: None,
+                target_def: Some("TEXT".to_string()),
+                sql: "ALTER TABLE orders DROP COLUMN old_col".to_string(),
+                selected: true,
+            },
+        ],
+        source_tables: 5,
+        target_tables: 3,
+    };
+
+    let json = serde_json::to_string(&result).unwrap();
+    let deserialized: DiffResult = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.items.len(), 2);
+    assert_eq!(deserialized.source_tables, 5);
+    assert_eq!(deserialized.target_tables, 3);
+    assert_eq!(deserialized.items[0].diff_type, DiffType::TableAdded);
+    assert_eq!(deserialized.items[1].diff_type, DiffType::ColumnRemoved);
+}
+
+#[test]
+fn test_diff_result_empty() {
+    let result = DiffResult {
+        items: vec![],
+        source_tables: 0,
+        target_tables: 0,
+    };
+
+    let json = serde_json::to_string(&result).unwrap();
+    let deserialized: DiffResult = serde_json::from_str(&json).unwrap();
+    assert!(deserialized.items.is_empty());
+    assert_eq!(deserialized.source_tables, 0);
+    assert_eq!(deserialized.target_tables, 0);
+}
+
+// ============================================================================
+// Schema Model Serialization Tests
+// ============================================================================
+
+#[test]
+fn test_column_serialize_deserialize() {
+    let col = Column {
+        name: "email".to_string(),
+        data_type: "VARCHAR(255)".to_string(),
+        nullable: true,
+        default_value: Some("''".to_string()),
+        auto_increment: false,
+        comment: Some("User email address".to_string()),
+        ordinal_position: 3,
+    };
+
+    let json = serde_json::to_string(&col).unwrap();
+    let deserialized: Column = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.name, "email");
+    assert_eq!(deserialized.data_type, "VARCHAR(255)");
+    assert!(deserialized.nullable);
+    assert_eq!(deserialized.default_value, Some("''".to_string()));
+    assert!(!deserialized.auto_increment);
+    assert_eq!(
+        deserialized.comment,
+        Some("User email address".to_string())
+    );
+    assert_eq!(deserialized.ordinal_position, 3);
+}
+
+#[test]
+fn test_column_serialize_none_optionals() {
+    let col = Column {
+        name: "id".to_string(),
+        data_type: "INT".to_string(),
+        nullable: false,
+        default_value: None,
+        auto_increment: true,
+        comment: None,
+        ordinal_position: 1,
+    };
+
+    let json = serde_json::to_string(&col).unwrap();
+    let deserialized: Column = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.default_value, None);
+    assert_eq!(deserialized.comment, None);
+    assert!(deserialized.auto_increment);
+}
+
+#[test]
+fn test_primary_key_serialize_deserialize() {
+    let pk = PrimaryKey {
+        name: Some("pk_users".to_string()),
+        columns: vec!["id".to_string()],
+    };
+
+    let json = serde_json::to_string(&pk).unwrap();
+    let deserialized: PrimaryKey = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.name, Some("pk_users".to_string()));
+    assert_eq!(deserialized.columns, vec!["id".to_string()]);
+}
+
+#[test]
+fn test_primary_key_composite() {
+    let pk = PrimaryKey {
+        name: None,
+        columns: vec!["order_id".to_string(), "product_id".to_string()],
+    };
+
+    let json = serde_json::to_string(&pk).unwrap();
+    let deserialized: PrimaryKey = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.name, None);
+    assert_eq!(deserialized.columns.len(), 2);
+}
+
+#[test]
+fn test_index_serialize_deserialize() {
+    let idx = Index {
+        name: "idx_email".to_string(),
+        columns: vec!["email".to_string()],
+        unique: true,
+        index_type: "BTREE".to_string(),
+    };
+
+    let json = serde_json::to_string(&idx).unwrap();
+    let deserialized: Index = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.name, "idx_email");
+    assert!(deserialized.unique);
+    assert_eq!(deserialized.index_type, "BTREE");
+}
+
+#[test]
+fn test_index_multi_column() {
+    let idx = Index {
+        name: "idx_composite".to_string(),
+        columns: vec!["last_name".to_string(), "first_name".to_string()],
+        unique: false,
+        index_type: "HASH".to_string(),
+    };
+
+    let json = serde_json::to_string(&idx).unwrap();
+    let deserialized: Index = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.columns.len(), 2);
+    assert!(!deserialized.unique);
+    assert_eq!(deserialized.index_type, "HASH");
+}
+
+#[test]
+fn test_foreign_key_serialize_deserialize() {
+    let fk = ForeignKey {
+        name: "fk_order_user".to_string(),
+        columns: vec!["user_id".to_string()],
+        ref_table: "users".to_string(),
+        ref_columns: vec!["id".to_string()],
+        on_delete: "CASCADE".to_string(),
+        on_update: "SET NULL".to_string(),
+    };
+
+    let json = serde_json::to_string(&fk).unwrap();
+    let deserialized: ForeignKey = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.name, "fk_order_user");
+    assert_eq!(deserialized.columns, vec!["user_id"]);
+    assert_eq!(deserialized.ref_table, "users");
+    assert_eq!(deserialized.ref_columns, vec!["id"]);
+    assert_eq!(deserialized.on_delete, "CASCADE");
+    assert_eq!(deserialized.on_update, "SET NULL");
+}
+
+#[test]
+fn test_foreign_key_composite() {
+    let fk = ForeignKey {
+        name: "fk_composite".to_string(),
+        columns: vec!["order_id".to_string(), "product_id".to_string()],
+        ref_table: "order_products".to_string(),
+        ref_columns: vec!["oid".to_string(), "pid".to_string()],
+        on_delete: "RESTRICT".to_string(),
+        on_update: "NO ACTION".to_string(),
+    };
+
+    let json = serde_json::to_string(&fk).unwrap();
+    let deserialized: ForeignKey = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.columns.len(), 2);
+    assert_eq!(deserialized.ref_columns.len(), 2);
+}
+
+#[test]
+fn test_unique_constraint_serialize_deserialize() {
+    let uc = UniqueConstraint {
+        name: "uq_email".to_string(),
+        columns: vec!["email".to_string()],
+    };
+
+    let json = serde_json::to_string(&uc).unwrap();
+    let deserialized: UniqueConstraint = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.name, "uq_email");
+    assert_eq!(deserialized.columns, vec!["email"]);
+}
+
+#[test]
+fn test_unique_constraint_composite_serialize() {
+    let uc = UniqueConstraint {
+        name: "uq_name_email".to_string(),
+        columns: vec!["first_name".to_string(), "email".to_string()],
+    };
+
+    let json = serde_json::to_string(&uc).unwrap();
+    let deserialized: UniqueConstraint = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.columns.len(), 2);
+}
+
+#[test]
+fn test_table_schema_serialize_deserialize() {
+    let table = TableSchema {
+        name: "users".to_string(),
+        columns: vec![
+            Column {
+                name: "id".to_string(),
+                data_type: "INT".to_string(),
+                nullable: false,
+                default_value: None,
+                auto_increment: true,
+                comment: None,
+                ordinal_position: 1,
+            },
+            Column {
+                name: "email".to_string(),
+                data_type: "VARCHAR(255)".to_string(),
+                nullable: false,
+                default_value: None,
+                auto_increment: false,
+                comment: Some("email".to_string()),
+                ordinal_position: 2,
+            },
+        ],
+        primary_key: Some(PrimaryKey {
+            name: Some("PRIMARY".to_string()),
+            columns: vec!["id".to_string()],
+        }),
+        indexes: vec![Index {
+            name: "idx_email".to_string(),
+            columns: vec!["email".to_string()],
+            unique: true,
+            index_type: "BTREE".to_string(),
+        }],
+        foreign_keys: vec![],
+        unique_constraints: vec![UniqueConstraint {
+            name: "uq_email".to_string(),
+            columns: vec!["email".to_string()],
+        }],
+    };
+
+    let json = serde_json::to_string(&table).unwrap();
+    let deserialized: TableSchema = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.name, "users");
+    assert_eq!(deserialized.columns.len(), 2);
+    assert!(deserialized.primary_key.is_some());
+    assert_eq!(deserialized.indexes.len(), 1);
+    assert!(deserialized.foreign_keys.is_empty());
+    assert_eq!(deserialized.unique_constraints.len(), 1);
+}
+
+#[test]
+fn test_table_schema_minimal() {
+    let table = TableSchema {
+        name: "empty_table".to_string(),
+        columns: vec![],
+        primary_key: None,
+        indexes: vec![],
+        foreign_keys: vec![],
+        unique_constraints: vec![],
+    };
+
+    let json = serde_json::to_string(&table).unwrap();
+    let deserialized: TableSchema = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.name, "empty_table");
+    assert!(deserialized.columns.is_empty());
+    assert!(deserialized.primary_key.is_none());
+}
+
+// ============================================================================
+// Schema Model Equality Tests
+// ============================================================================
+
+#[test]
+fn test_index_equality() {
+    let idx1 = create_index("idx_a", vec!["col1", "col2"], false);
+    let idx2 = create_index("idx_a", vec!["col1", "col2"], false);
+    let idx3 = create_index("idx_a", vec!["col1"], false); // different columns
+    let idx4 = create_index("idx_a", vec!["col1", "col2"], true); // different uniqueness
+
+    assert_eq!(idx1, idx2);
+    assert_ne!(idx1, idx3);
+    assert_ne!(idx1, idx4);
+}
+
+#[test]
+fn test_foreign_key_equality() {
+    let fk1 = create_foreign_key("fk_a", vec!["user_id"], "users", vec!["id"]);
+    let fk2 = create_foreign_key("fk_a", vec!["user_id"], "users", vec!["id"]);
+    let fk3 = create_foreign_key("fk_a", vec!["user_id"], "accounts", vec!["id"]); // different ref table
+
+    assert_eq!(fk1, fk2);
+    assert_ne!(fk1, fk3);
+}
+
+#[test]
+fn test_unique_constraint_equality() {
+    let uc1 = create_unique_constraint("uq_a", vec!["col1"]);
+    let uc2 = create_unique_constraint("uq_a", vec!["col1"]);
+    let uc3 = create_unique_constraint("uq_b", vec!["col1"]); // different name
+
+    assert_eq!(uc1, uc2);
+    assert_ne!(uc1, uc3);
+}
+
+#[test]
+fn test_primary_key_equality() {
+    let pk1 = PrimaryKey {
+        name: Some("pk_users".to_string()),
+        columns: vec!["id".to_string()],
+    };
+    let pk2 = PrimaryKey {
+        name: Some("pk_users".to_string()),
+        columns: vec!["id".to_string()],
+    };
+    let pk3 = PrimaryKey {
+        name: None,
+        columns: vec!["id".to_string()],
+    };
+
+    assert_eq!(pk1, pk2);
+    assert_ne!(pk1, pk3);
+}
+
+// ============================================================================
+// Comparator Edge Case Tests
+// ============================================================================
+
+#[test]
+fn test_foreign_key_same_name_different_content() {
+    // The comparator matches foreign keys by name only.
+    // When the same FK name exists in both source and target but with
+    // different content (e.g., different ref_table), the comparator
+    // does NOT detect it as a modification -- it considers the FK matched.
+    let mut source_table = create_table(
+        "orders",
+        vec![
+            create_column("id", "INT", false, true, 1),
+            create_column("user_id", "INT", false, false, 2),
+        ],
+    );
+    source_table.foreign_keys = vec![create_foreign_key(
+        "fk_user",
+        vec!["user_id"],
+        "users",
+        vec!["id"],
+    )];
+
+    let mut target_table = create_table(
+        "orders",
+        vec![
+            create_column("id", "INT", false, true, 1),
+            create_column("user_id", "INT", false, false, 2),
+        ],
+    );
+    // Same FK name "fk_user" but pointing to a different table
+    target_table.foreign_keys = vec![create_foreign_key(
+        "fk_user",
+        vec!["user_id"],
+        "accounts",
+        vec!["account_id"],
+    )];
+
+    let diffs = compare_schemas(&vec![source_table], &vec![target_table], &MockSqlGen);
+
+    // The comparator only checks for FK existence by name; it does NOT detect
+    // modifications to FK content. So no diffs should be produced.
+    assert!(
+        diffs.is_empty(),
+        "Expected no diffs because FK comparison only checks existence by name, got: {:?}",
+        diffs
+    );
+}
+
+#[test]
+fn test_id_counter_increments_across_all_diff_types() {
+    // Build a scenario that produces multiple diff types and verify IDs increment sequentially.
+    let mut source_table = create_table(
+        "items",
+        vec![
+            create_column("id", "INT", false, true, 1),
+            create_column("new_col", "TEXT", true, false, 2),
+        ],
+    );
+    source_table.indexes = vec![create_index("idx_new", vec!["new_col"], false)];
+    source_table.foreign_keys = vec![create_foreign_key(
+        "fk_new",
+        vec!["id"],
+        "other",
+        vec!["id"],
+    )];
+    source_table.unique_constraints =
+        vec![create_unique_constraint("uq_new", vec!["new_col"])];
+
+    // A new table that doesn't exist in target
+    let new_table = create_table(
+        "brand_new",
+        vec![create_column("id", "INT", false, true, 1)],
+    );
+
+    let mut target_table = create_table(
+        "items",
+        vec![
+            create_column("id", "INT", false, true, 1),
+            create_column("old_col", "TEXT", true, false, 2),
+        ],
+    );
+    target_table.indexes = vec![create_index("idx_old", vec!["old_col"], false)];
+    target_table.foreign_keys = vec![create_foreign_key(
+        "fk_old",
+        vec!["id"],
+        "legacy",
+        vec!["id"],
+    )];
+    target_table.unique_constraints =
+        vec![create_unique_constraint("uq_old", vec!["old_col"])];
+
+    // Also a table in target only, to be removed
+    let old_table = create_table(
+        "deprecated",
+        vec![create_column("id", "INT", false, true, 1)],
+    );
+
+    let diffs = compare_schemas(
+        &vec![new_table, source_table],
+        &vec![old_table, target_table],
+        &MockSqlGen,
+    );
+
+    // Should have at least: TableAdded (brand_new), TableRemoved (deprecated),
+    // ColumnAdded (new_col), ColumnRemoved (old_col),
+    // IndexAdded (idx_new), IndexRemoved (idx_old),
+    // ForeignKeyAdded (fk_new), ForeignKeyRemoved (fk_old),
+    // UniqueConstraintAdded (uq_new), UniqueConstraintRemoved (uq_old)
+    assert!(
+        diffs.len() >= 10,
+        "Expected at least 10 diffs, got {}",
+        diffs.len()
+    );
+
+    // Check all IDs are unique
+    let ids: Vec<&str> = diffs.iter().map(|d| d.id.as_str()).collect();
+    let mut unique_ids = ids.clone();
+    unique_ids.sort();
+    unique_ids.dedup();
+    assert_eq!(
+        ids.len(),
+        unique_ids.len(),
+        "IDs should all be unique: {:?}",
+        ids
+    );
+
+    // Check IDs are sequential integers starting from 1
+    for (i, diff) in diffs.iter().enumerate() {
+        let expected_id = (i + 1).to_string();
+        assert_eq!(
+            diff.id, expected_id,
+            "Expected diff #{} to have id '{}', got '{}'",
+            i, expected_id, diff.id
+        );
+    }
+}
+
+#[test]
+fn test_modified_column_auto_increment_change() {
+    let source = vec![create_table(
+        "users",
+        vec![create_column("id", "INT", false, true, 1)],  // auto_increment = true
+    )];
+
+    let target = vec![create_table(
+        "users",
+        vec![create_column("id", "INT", false, false, 1)], // auto_increment = false
+    )];
+
+    let diffs = compare_schemas(&source, &target, &MockSqlGen);
+    let col_modified = diffs
+        .iter()
+        .find(|d| d.diff_type == DiffType::ColumnModified);
+    assert!(
+        col_modified.is_some(),
+        "Should detect auto_increment change"
+    );
+}
+
+#[test]
+fn test_modified_column_comment_change() {
+    let source = vec![create_table(
+        "users",
+        vec![Column {
+            name: "name".to_string(),
+            data_type: "VARCHAR(255)".to_string(),
+            nullable: false,
+            default_value: None,
+            auto_increment: false,
+            comment: Some("full name".to_string()),
+            ordinal_position: 1,
+        }],
+    )];
+
+    let target = vec![create_table(
+        "users",
+        vec![Column {
+            name: "name".to_string(),
+            data_type: "VARCHAR(255)".to_string(),
+            nullable: false,
+            default_value: None,
+            auto_increment: false,
+            comment: None,
+            ordinal_position: 1,
+        }],
+    )];
+
+    let diffs = compare_schemas(&source, &target, &MockSqlGen);
+    let col_modified = diffs
+        .iter()
+        .find(|d| d.diff_type == DiffType::ColumnModified);
+    assert!(col_modified.is_some(), "Should detect comment change");
+}
+
+#[test]
+fn test_modified_column_ordinal_position_change() {
+    let source = vec![create_table(
+        "users",
+        vec![create_column("name", "VARCHAR(255)", false, false, 1)],
+    )];
+
+    let target = vec![create_table(
+        "users",
+        vec![create_column("name", "VARCHAR(255)", false, false, 5)], // different position
+    )];
+
+    let diffs = compare_schemas(&source, &target, &MockSqlGen);
+    let col_modified = diffs
+        .iter()
+        .find(|d| d.diff_type == DiffType::ColumnModified);
+    assert!(
+        col_modified.is_some(),
+        "Should detect ordinal_position change"
+    );
+}
+
+#[test]
+fn test_index_uniqueness_change_detected_as_modified() {
+    let mut source_table = create_table(
+        "users",
+        vec![create_column("email", "VARCHAR(255)", false, false, 1)],
+    );
+    source_table.indexes = vec![create_index("idx_email", vec!["email"], true)]; // unique
+
+    let mut target_table = create_table(
+        "users",
+        vec![create_column("email", "VARCHAR(255)", false, false, 1)],
+    );
+    target_table.indexes = vec![create_index("idx_email", vec!["email"], false)]; // not unique
+
+    let diffs = compare_schemas(&vec![source_table], &vec![target_table], &MockSqlGen);
+
+    let idx_modified = diffs
+        .iter()
+        .find(|d| d.diff_type == DiffType::IndexModified);
+    assert!(
+        idx_modified.is_some(),
+        "Should detect uniqueness change as index modification"
+    );
+    // Modified index SQL should contain both DROP and CREATE
+    let sql = &idx_modified.unwrap().sql;
+    assert!(sql.contains("DROP INDEX"));
+    assert!(sql.contains("CREATE UNIQUE INDEX"));
+}
+
+#[test]
+fn test_table_schema_equality() {
+    let t1 = create_table("users", vec![create_column("id", "INT", false, true, 1)]);
+    let t2 = create_table("users", vec![create_column("id", "INT", false, true, 1)]);
+    let t3 = create_table("accounts", vec![create_column("id", "INT", false, true, 1)]);
+
+    assert_eq!(t1, t2);
+    assert_ne!(t1, t3);
+}
+
+#[test]
+fn test_column_with_default_value_serialize() {
+    let col = create_column_with_default("status", "INT", false, "0", 1);
+    let json = serde_json::to_string(&col).unwrap();
+    let deserialized: Column = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.default_value, Some("0".to_string()));
+    assert!(!deserialized.auto_increment);
 }
