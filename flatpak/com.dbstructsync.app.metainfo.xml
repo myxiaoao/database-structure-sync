@@ -67,15 +67,17 @@
   </keywords>
 
   <releases>
-    <release version="0.1.0" date="2024-01-01">
+    <release version="1.0.0" date="2026-02-23">
       <description>
-        <p>Initial release with core features:</p>
+        <p>First stable release with full feature set:</p>
         <ul>
-          <li>Database connection management</li>
-          <li>Schema comparison between databases</li>
-          <li>SQL migration script generation</li>
-          <li>SSH tunnel support</li>
-          <li>SSL/TLS support</li>
+          <li>Database connection management with secure keychain storage</li>
+          <li>Schema comparison between MySQL, PostgreSQL, and MariaDB</li>
+          <li>SQL migration script generation and export</li>
+          <li>SSH tunnel support for remote connections</li>
+          <li>SSL/TLS encryption support</li>
+          <li>Dark/Light/System theme support</li>
+          <li>Multi-language support (English and Chinese)</li>
         </ul>
       </description>
     </release>

@@ -4,7 +4,7 @@ import { useDatabasesQuery, useCompareMutation, useExecuteSyncMutation } from "@
 import { syncApi } from "@/lib/api/sync";
 import type { DiffItem, DiffResult, Connection } from "@/types";
 
-const APP_VERSION = "0.1.0";
+const APP_VERSION = "1.0.0";
 
 function generateSqlHeader(
   sourceConn: Connection | undefined,
