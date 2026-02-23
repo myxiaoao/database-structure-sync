@@ -8,7 +8,7 @@ import type { Connection } from "@/types";
 const mockConnection: Connection = {
   id: "test-id",
   name: "Test Connection",
-  db_type: "MySQL",
+  db_type: "mysql",
   host: "localhost",
   port: 3306,
   username: "root",

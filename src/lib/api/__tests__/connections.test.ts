@@ -13,7 +13,7 @@ const mockInvoke = vi.mocked(invoke);
 const mockConnection: Connection = {
   id: "test-id",
   name: "Test Connection",
-  db_type: "MySQL",
+  db_type: "mysql",
   host: "localhost",
   port: 3306,
   username: "root",
@@ -23,7 +23,7 @@ const mockConnection: Connection = {
 
 const mockConnectionInput: ConnectionInput = {
   name: "Test Connection",
-  db_type: "MySQL",
+  db_type: "mysql",
   host: "localhost",
   port: 3306,
   username: "root",

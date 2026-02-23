@@ -1,4 +1,10 @@
-export type DbType = "MySQL" | "PostgreSQL" | "MariaDB";
+export type DbType = "mysql" | "postgresql" | "mariadb";
+
+export const DB_TYPE_LABELS: Record<DbType, string> = {
+  mysql: "MySQL",
+  postgresql: "PostgreSQL",
+  mariadb: "MariaDB",
+};
 
 export type DiffType =
   | "TableAdded"

@@ -2,7 +2,8 @@ import { useState, useMemo, useCallback } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { useDatabasesQuery, useCompareMutation, useExecuteSyncMutation } from "@/lib/query";
 import { syncApi } from "@/lib/api/sync";
-import type { DiffItem, DiffResult, Connection } from "@/types";
+import { DB_TYPE_LABELS } from "@/types";
+import type { DiffItem, DiffResult, Connection, DbType } from "@/types";
 
 const APP_VERSION = "1.0.0";
 
@@ -25,14 +26,14 @@ function generateSqlHeader(
     ? `${targetConn.name} (${targetConn.host}:${targetConn.port}/${targetDb || targetConn.database})`
     : "N/A";
   const dbType = targetConn?.db_type || sourceConn?.db_type || "Unknown";
-  const isMySQL = dbType === "MySQL" || dbType === "MariaDB";
+  const isMySQL = dbType === "mysql" || dbType === "mariadb";
 
   const lines = [
     "-- ---------------------------------------------------------",
     `-- Database Structure Sync v${APP_VERSION}`,
     "--",
     `-- Generation Time: ${timestamp}`,
-    `-- Database Type:   ${dbType}`,
+    `-- Database Type:   ${DB_TYPE_LABELS[dbType as DbType] || dbType}`,
     `-- Source:          ${sourceName}`,
     `-- Target:          ${targetName}`,
     `-- Changes:         ${itemCount} item(s)`,
@@ -63,7 +64,7 @@ function generateSqlHeader(
 }
 
 function generateSqlFooter(dbType: string): string {
-  const isMySQL = dbType === "MySQL" || dbType === "MariaDB";
+  const isMySQL = dbType === "mysql" || dbType === "mariadb";
 
   const lines = [""];
 

@@ -21,7 +21,7 @@ const mockConnections: Connection[] = [
   {
     id: "1",
     name: "Test DB 1",
-    db_type: "MySQL",
+    db_type: "mysql",
     host: "localhost",
     port: 3306,
     username: "root",
@@ -31,7 +31,7 @@ const mockConnections: Connection[] = [
   {
     id: "2",
     name: "Test DB 2",
-    db_type: "PostgreSQL",
+    db_type: "postgresql",
     host: "localhost",
     port: 5432,
     username: "postgres",

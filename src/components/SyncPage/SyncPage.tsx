@@ -14,7 +14,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { DiffTree } from "@/components/DiffTree";
 import { useSync } from "@/hooks";
-import type { Connection } from "@/types";
+import { DB_TYPE_LABELS } from "@/types";
+import type { Connection, DbType } from "@/types";
 
 interface SyncPageProps {
   connections: Connection[];
@@ -103,7 +104,7 @@ export function SyncPage({ connections }: SyncPageProps) {
             <SelectContent>
               {connections.map((conn) => (
                 <SelectItem key={conn.id} value={conn.id}>
-                  {conn.name} ({conn.db_type})
+                  {conn.name} ({DB_TYPE_LABELS[conn.db_type as DbType] || conn.db_type})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -138,7 +139,7 @@ export function SyncPage({ connections }: SyncPageProps) {
             <SelectContent>
               {connections.map((conn) => (
                 <SelectItem key={conn.id} value={conn.id}>
-                  {conn.name} ({conn.db_type})
+                  {conn.name} ({DB_TYPE_LABELS[conn.db_type as DbType] || conn.db_type})
                 </SelectItem>
               ))}
             </SelectContent>

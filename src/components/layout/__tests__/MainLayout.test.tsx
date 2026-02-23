@@ -15,7 +15,7 @@ const mockConnections: Connection[] = [
   {
     id: "1",
     name: "Test DB",
-    db_type: "MySQL",
+    db_type: "mysql",
     host: "localhost",
     port: 3306,
     username: "root",

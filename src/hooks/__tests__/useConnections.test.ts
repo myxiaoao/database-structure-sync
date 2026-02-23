@@ -7,7 +7,7 @@ import type { Connection, ConnectionInput } from "@/types";
 const mockConnection: Connection = {
   id: "test-id-1",
   name: "Test Connection",
-  db_type: "MySQL",
+  db_type: "mysql",
   host: "localhost",
   port: 3306,
   username: "root",
@@ -20,7 +20,7 @@ const mockConnections: Connection[] = [
   {
     id: "test-id-2",
     name: "Second Connection",
-    db_type: "PostgreSQL",
+    db_type: "postgresql",
     host: "localhost",
     port: 5432,
     username: "postgres",
@@ -153,7 +153,7 @@ describe("useConnections", () => {
   it("should save connection and close form on success", async () => {
     const newConnection: ConnectionInput = {
       name: "New Connection",
-      db_type: "MySQL",
+      db_type: "mysql",
       host: "localhost",
       port: 3306,
       username: "root",
@@ -206,7 +206,7 @@ describe("useConnections", () => {
   it("should test connection", async () => {
     const connectionInput: ConnectionInput = {
       name: "Test Connection",
-      db_type: "MySQL",
+      db_type: "mysql",
       host: "localhost",
       port: 3306,
       username: "root",
@@ -242,7 +242,7 @@ describe("useConnections", () => {
   it("should keep form open when saveConnection fails", async () => {
     const newConnection: ConnectionInput = {
       name: "New Connection",
-      db_type: "MySQL",
+      db_type: "mysql",
       host: "localhost",
       port: 3306,
       username: "root",
@@ -324,7 +324,7 @@ describe("useConnections", () => {
     const updateInput: ConnectionInput = {
       id: "test-id-1",
       name: "Updated Connection",
-      db_type: "MySQL",
+      db_type: "mysql",
       host: "localhost",
       port: 3306,
       username: "root",
@@ -356,7 +356,7 @@ describe("useConnections", () => {
   it("should handle test connection failure", async () => {
     const connectionInput: ConnectionInput = {
       name: "Test Connection",
-      db_type: "MySQL",
+      db_type: "mysql",
       host: "localhost",
       port: 3306,
       username: "root",

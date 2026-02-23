@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Connection, ConnectionInput } from "@/lib/api";
+import { DB_TYPE_LABELS } from "@/types";
 import type { DbType } from "@/types";
 
 type SshAuthMethod = "Password" | "PrivateKey";
@@ -50,7 +51,7 @@ interface FormData {
 
 const DEFAULT_FORM_DATA: FormData = {
   name: "",
-  db_type: "MySQL",
+  db_type: "mysql",
   host: "localhost",
   port: 3306,
   username: "",
@@ -168,9 +169,9 @@ interface ConnectionFormProps {
 }
 
 const DEFAULT_PORTS: Record<string, number> = {
-  MySQL: 3306,
-  PostgreSQL: 5432,
-  MariaDB: 3306,
+  mysql: 3306,
+  postgresql: 5432,
+  mariadb: 3306,
 };
 
 export function ConnectionForm({
@@ -286,9 +287,9 @@ export function ConnectionForm({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="MySQL">MySQL</SelectItem>
-                    <SelectItem value="PostgreSQL">PostgreSQL</SelectItem>
-                    <SelectItem value="MariaDB">MariaDB</SelectItem>
+                    <SelectItem value="mysql">{DB_TYPE_LABELS.mysql}</SelectItem>
+                    <SelectItem value="postgresql">{DB_TYPE_LABELS.postgresql}</SelectItem>
+                    <SelectItem value="mariadb">{DB_TYPE_LABELS.mariadb}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

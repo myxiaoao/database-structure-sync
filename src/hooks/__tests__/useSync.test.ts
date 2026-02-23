@@ -8,7 +8,7 @@ const mockConnections: Connection[] = [
   {
     id: "source-id",
     name: "Source DB",
-    db_type: "MySQL",
+    db_type: "mysql",
     host: "localhost",
     port: 3306,
     username: "root",
@@ -18,7 +18,7 @@ const mockConnections: Connection[] = [
   {
     id: "target-id",
     name: "Target DB",
-    db_type: "MySQL",
+    db_type: "mysql",
     host: "localhost",
     port: 3306,
     username: "root",
@@ -28,7 +28,7 @@ const mockConnections: Connection[] = [
   {
     id: "no-db-id",
     name: "No DB Connection",
-    db_type: "MySQL",
+    db_type: "mysql",
     host: "localhost",
     port: 3306,
     username: "root",
@@ -358,7 +358,7 @@ describe("useSync", () => {
       {
         id: "pg-source",
         name: "PG Source",
-        db_type: "PostgreSQL",
+        db_type: "postgresql",
         host: "localhost",
         port: 5432,
         username: "postgres",
@@ -368,7 +368,7 @@ describe("useSync", () => {
       {
         id: "pg-target",
         name: "PG Target",
-        db_type: "PostgreSQL",
+        db_type: "postgresql",
         host: "localhost",
         port: 5432,
         username: "postgres",
@@ -604,7 +604,7 @@ describe("useSync", () => {
       {
         id: "no-db-1",
         name: "No DB 1",
-        db_type: "MySQL",
+        db_type: "mysql",
         host: "localhost",
         port: 3306,
         username: "root",
@@ -614,7 +614,7 @@ describe("useSync", () => {
       {
         id: "no-db-2",
         name: "No DB 2",
-        db_type: "MySQL",
+        db_type: "mysql",
         host: "localhost",
         port: 3306,
         username: "root",
@@ -731,7 +731,7 @@ describe("useSync", () => {
       {
         id: "maria-source",
         name: "Maria Source",
-        db_type: "MariaDB",
+        db_type: "mariadb",
         host: "localhost",
         port: 3306,
         username: "root",
@@ -741,7 +741,7 @@ describe("useSync", () => {
       {
         id: "maria-target",
         name: "Maria Target",
-        db_type: "MariaDB",
+        db_type: "mariadb",
         host: "localhost",
         port: 3306,
         username: "root",

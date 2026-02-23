@@ -10,6 +10,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Connection } from "@/lib/api";
+import { DB_TYPE_LABELS } from "@/types";
+import type { DbType } from "@/types";
 
 interface SidebarProps {
   connections?: Connection[];
@@ -94,7 +96,7 @@ export function Sidebar({
               </div>
               {expanded[conn.id] && (
                 <div className="ml-6 text-[10px] text-muted-foreground py-1 px-2 space-y-0.5 border-l border-muted">
-                  <div>{conn.db_type}</div>
+                  <div>{DB_TYPE_LABELS[conn.db_type as DbType] || conn.db_type}</div>
                   <div>
                     {conn.host}:{conn.port}
                   </div>

@@ -29,7 +29,7 @@ const mockToast = vi.mocked(toast);
 
 const mockConnectionInput: ConnectionInput = {
   name: "Test Connection",
-  db_type: "MySQL",
+  db_type: "mysql",
   host: "localhost",
   port: 3306,
   username: "root",
