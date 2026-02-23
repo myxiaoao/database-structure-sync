@@ -2,6 +2,9 @@
 
 A cross-platform desktop application for comparing and synchronizing database table structures between MySQL, PostgreSQL, and MariaDB databases.
 
+[![Version](https://img.shields.io/github/v/release/myxiaoao/database-structure-sync?label=Version)](https://github.com/myxiaoao/database-structure-sync/releases)
+[![CI](https://github.com/myxiaoao/database-structure-sync/actions/workflows/build.yml/badge.svg)](https://github.com/myxiaoao/database-structure-sync/actions/workflows/build.yml)
+[![Release](https://github.com/myxiaoao/database-structure-sync/actions/workflows/release.yml/badge.svg)](https://github.com/myxiaoao/database-structure-sync/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Tauri](https://img.shields.io/badge/Tauri-2.x-24C8D8?logo=tauri)](https://tauri.app)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev)
