@@ -1,7 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use log::{error, info, warn};
+use log::{error, info};
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
@@ -20,17 +20,25 @@ pub struct AppState {
     pub active_tunnels: Arc<Mutex<Vec<SshTunnel>>>,
 }
 
-/// Resolve connection host and port, applying SSH tunnel if configured
-fn resolve_connection_endpoint(conn: &Connection) -> (String, u16) {
+/// Resolve connection host and port, applying SSH tunnel if configured.
+/// When SSH is enabled, creates a local tunnel and returns `("127.0.0.1", local_port)`.
+async fn resolve_connection_endpoint(
+    conn: &Connection,
+    tunnels: &Arc<Mutex<Vec<SshTunnel>>>,
+) -> Result<(String, u16), AppError> {
     if let Some(ssh) = &conn.ssh_config {
         if ssh.enabled {
             info!("Creating SSH tunnel for connection: {}", conn.name);
-            // When SSH is enabled, we'd connect through the tunnel
-            // For now, use direct connection (tunnel implementation pending)
-            warn!("SSH tunnel not yet fully implemented, using direct connection");
+            let tunnel = SshTunnel::new(ssh, &conn.host, conn.port)
+                .await
+                .map_err(|e| AppError::Connection(format!("SSH tunnel failed: {}", e)))?;
+            let local_port = tunnel.local_port();
+            tunnels.lock().await.push(tunnel);
+            info!("SSH tunnel established on 127.0.0.1:{}", local_port);
+            return Ok(("127.0.0.1".to_string(), local_port));
         }
     }
-    (conn.host.clone(), conn.port)
+    Ok((conn.host.clone(), conn.port))
 }
 
 /// Database driver that implements both SchemaReader and SqlGenerator
@@ -40,8 +48,8 @@ enum DatabaseDriver {
 }
 
 impl DatabaseDriver {
-    async fn create(conn: &Connection) -> AppResult<Self> {
-        let (host, port) = resolve_connection_endpoint(conn);
+    async fn create(conn: &Connection, tunnels: &Arc<Mutex<Vec<SshTunnel>>>) -> AppResult<Self> {
+        let (host, port) = resolve_connection_endpoint(conn, tunnels).await?;
         let ssl_config = conn.ssl_config.as_ref();
 
         match conn.db_type {
@@ -157,7 +165,7 @@ async fn delete_connection(state: State<'_, AppState>, id: String) -> Result<(),
 }
 
 #[tauri::command]
-async fn test_connection(input: ConnectionInput) -> Result<(), String> {
+async fn test_connection(state: State<'_, AppState>, input: ConnectionInput) -> Result<(), String> {
     info!("Testing connection: {} ({})", input.name, input.host);
 
     let temp_conn = Connection {
@@ -175,10 +183,12 @@ async fn test_connection(input: ConnectionInput) -> Result<(), String> {
         updated_at: String::new(),
     };
 
-    let driver = DatabaseDriver::create(&temp_conn).await.map_err(|e| {
-        error!("Failed to create driver for test: {}", e);
-        e.to_string()
-    })?;
+    let driver = DatabaseDriver::create(&temp_conn, &state.active_tunnels)
+        .await
+        .map_err(|e| {
+            error!("Failed to create driver for test: {}", e);
+            e.to_string()
+        })?;
 
     driver.as_reader().test_connection().await.map_err(|e| {
         error!("Connection test failed: {}", e);
@@ -207,10 +217,12 @@ async fn list_databases(
         })?;
     drop(store);
 
-    let driver = DatabaseDriver::create(&conn).await.map_err(|e| {
-        error!("Failed to connect: {}", e);
-        e.to_string()
-    })?;
+    let driver = DatabaseDriver::create(&conn, &state.active_tunnels)
+        .await
+        .map_err(|e| {
+            error!("Failed to connect: {}", e);
+            e.to_string()
+        })?;
 
     let databases = driver.as_reader().list_databases().await.map_err(|e| {
         error!("Failed to list databases: {}", e);
@@ -265,19 +277,23 @@ async fn compare_databases(
         "Connecting to source: {} ({})",
         source_conn.name, source_conn.db_type
     );
-    let source_driver = DatabaseDriver::create(&source_conn).await.map_err(|e| {
-        error!("Failed to connect to source: {}", e);
-        e.to_string()
-    })?;
+    let source_driver = DatabaseDriver::create(&source_conn, &state.active_tunnels)
+        .await
+        .map_err(|e| {
+            error!("Failed to connect to source: {}", e);
+            e.to_string()
+        })?;
 
     info!(
         "Connecting to target: {} ({})",
         target_conn.name, target_conn.db_type
     );
-    let target_driver = DatabaseDriver::create(&target_conn).await.map_err(|e| {
-        error!("Failed to connect to target: {}", e);
-        e.to_string()
-    })?;
+    let target_driver = DatabaseDriver::create(&target_conn, &state.active_tunnels)
+        .await
+        .map_err(|e| {
+            error!("Failed to connect to target: {}", e);
+            e.to_string()
+        })?;
 
     info!("Fetching source schema...");
     let source_tables = source_driver.as_reader().get_tables().await.map_err(|e| {
@@ -340,10 +356,12 @@ async fn execute_sync(
         target_conn.database = db;
     }
 
-    let driver = DatabaseDriver::create(&target_conn).await.map_err(|e| {
-        error!("Failed to connect to target: {}", e);
-        e.to_string()
-    })?;
+    let driver = DatabaseDriver::create(&target_conn, &state.active_tunnels)
+        .await
+        .map_err(|e| {
+            error!("Failed to connect to target: {}", e);
+            e.to_string()
+        })?;
 
     for (i, sql) in sql_statements.iter().enumerate() {
         info!("Executing statement {}/{}", i + 1, sql_statements.len());
@@ -383,7 +401,8 @@ async fn save_sql_file(file_path: String, content: String) -> Result<(), String>
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        // To enable auto-update, configure updater in tauri.conf.json with a valid pubkey
+        // and uncomment: .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_log::Builder::new()

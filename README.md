@@ -23,7 +23,7 @@ A cross-platform desktop application for comparing and synchronizing database ta
   - SSH tunnel support for secure remote connections
   - SSL/TLS encryption support
   - Passwords stored in system keychain
-- **Auto Update**: In-app update notifications via Tauri updater plugin
+- **Auto Update**: In-app update notifications via Tauri updater plugin (requires signing key configuration)
 - **Cross-Platform**: Windows, macOS, and Linux
 - **Internationalization**: English and Chinese language support
 - **Dark/Light Mode**: Automatic theme detection with manual override
@@ -142,7 +142,7 @@ The built application will be in `src-tauri/target/release/bundle/`.
 - russh for SSH tunnels
 - keyring for system keychain integration
 - thiserror / anyhow for error handling
-- tauri-plugin-updater for auto updates
+- tauri-plugin-updater for auto updates (disabled until signing key is configured)
 - tauri-plugin-dialog for native dialogs
 
 ## Development

@@ -4,7 +4,7 @@
   "description": "Cross-platform database schema comparison and synchronization tool",
   "private": true,
   "type": "module",
-  "author": "Cooper <myxiaoao@gmail.com>",
+  "author": "Cooper <myxiaoao@users.noreply.github.com>",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -18,7 +18,9 @@ impl client::Handler for Client {
         &mut self,
         _server_public_key: &PublicKey,
     ) -> Result<bool, Self::Error> {
-        // In production, you should verify the host key
+        // TODO: Implement known_hosts verification for production use.
+        // Currently accepts all host keys, which is vulnerable to MITM attacks.
+        // See: https://docs.rs/russh/latest/russh/client/trait.Handler.html
         Ok(true)
     }
 }

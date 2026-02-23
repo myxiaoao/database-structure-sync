@@ -2,7 +2,7 @@
 name = "database-structure-sync"
 version = "0.1.0"
 description = "Cross-platform database schema comparison and synchronization tool"
-authors = ["Cooper <myxiaoao@gmail.com>"]
+authors = ["Cooper <myxiaoao@users.noreply.github.com>"]
 license = "MIT"
 repository = "https://github.com/myxiaoao/database-structure-sync"
 homepage = "https://github.com/myxiaoao/database-structure-sync"

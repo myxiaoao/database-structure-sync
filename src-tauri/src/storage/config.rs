@@ -391,7 +391,9 @@ mod tests {
         row.ssh_auth_method = Some("password".to_string());
 
         let conn = row.into_connection("pw".into(), Some("ssh_pw".into()), None);
-        let ssh = conn.ssh_config.unwrap();
+        let ssh = conn
+            .ssh_config
+            .expect("ssh_config should be Some when ssh_enabled=1");
         assert!(ssh.enabled);
         assert_eq!(ssh.host, "bastion.host");
         assert_eq!(ssh.port, 2222);
@@ -413,7 +415,9 @@ mod tests {
         row.ssh_private_key_path = Some("/home/.ssh/id_rsa".to_string());
 
         let conn = row.into_connection("pw".into(), None, Some("passphrase".into()));
-        let ssh = conn.ssh_config.unwrap();
+        let ssh = conn
+            .ssh_config
+            .expect("ssh_config should be Some when ssh_enabled=1");
         match ssh.auth_method {
             SshAuthMethod::PrivateKey {
                 private_key_path,
@@ -435,7 +439,9 @@ mod tests {
         row.ssh_auth_method = Some("kerberos".to_string());
 
         let conn = row.into_connection("pw".into(), None, None);
-        let ssh = conn.ssh_config.unwrap();
+        let ssh = conn
+            .ssh_config
+            .expect("ssh_config should be Some when ssh_enabled=1");
         match ssh.auth_method {
             SshAuthMethod::Password { password } => assert_eq!(password, ""),
             _ => panic!("expected fallback to Password with empty string"),
@@ -451,7 +457,9 @@ mod tests {
         row.ssh_auth_method = None;
 
         let conn = row.into_connection("pw".into(), None, None);
-        let ssh = conn.ssh_config.unwrap();
+        let ssh = conn
+            .ssh_config
+            .expect("ssh_config should be Some when ssh_enabled=1");
         match ssh.auth_method {
             SshAuthMethod::Password { password } => assert_eq!(password, ""),
             _ => panic!("expected fallback to Password with empty string"),
@@ -475,7 +483,7 @@ mod tests {
         row.ssh_auth_method = Some("password".to_string());
 
         let conn = row.into_connection("pw".into(), Some("sp".into()), None);
-        assert_eq!(conn.ssh_config.unwrap().port, 22);
+        assert_eq!(conn.ssh_config.expect("ssh_config should be Some").port, 22);
     }
 
     // ========================================================================
@@ -492,7 +500,9 @@ mod tests {
         row.ssl_verify_server = 1;
 
         let conn = row.into_connection("pw".into(), None, None);
-        let ssl = conn.ssl_config.unwrap();
+        let ssl = conn
+            .ssl_config
+            .expect("ssl_config should be Some when ssl_enabled=1");
         assert!(ssl.enabled);
         assert_eq!(ssl.ca_cert_path, Some("/certs/ca.pem".to_string()));
         assert_eq!(ssl.client_cert_path, Some("/certs/client.pem".to_string()));
@@ -514,7 +524,9 @@ mod tests {
         row.ssl_verify_server = 0;
 
         let conn = row.into_connection("pw".into(), None, None);
-        let ssl = conn.ssl_config.unwrap();
+        let ssl = conn
+            .ssl_config
+            .expect("ssl_config should be Some when ssl_enabled=1");
         assert!(!ssl.verify_server);
     }
 
@@ -547,7 +559,9 @@ mod tests {
         row.ssh_private_key_path = Some("/key".to_string());
 
         let conn = row.into_connection("pw".into(), None, None);
-        let ssh = conn.ssh_config.unwrap();
+        let ssh = conn
+            .ssh_config
+            .expect("ssh_config should be Some when ssh_enabled=1");
         match ssh.auth_method {
             SshAuthMethod::PrivateKey { passphrase, .. } => assert_eq!(passphrase, None),
             _ => panic!("expected PrivateKey"),
@@ -563,7 +577,9 @@ mod tests {
         row.ssh_auth_method = Some("password".to_string());
 
         let conn = row.into_connection("pw".into(), Some("sp".into()), None);
-        let ssh = conn.ssh_config.unwrap();
+        let ssh = conn
+            .ssh_config
+            .expect("ssh_config should be Some when ssh_enabled=1");
         assert_eq!(ssh.host, "");
         assert_eq!(ssh.username, "");
     }
@@ -578,7 +594,9 @@ mod tests {
 
         // ssh_password is None — should fall back to empty string via unwrap_or_default
         let conn = row.into_connection("pw".into(), None, None);
-        let ssh = conn.ssh_config.unwrap();
+        let ssh = conn
+            .ssh_config
+            .expect("ssh_config should be Some when ssh_enabled=1");
         match ssh.auth_method {
             SshAuthMethod::Password { password } => assert_eq!(password, ""),
             _ => panic!("expected Password auth with empty string"),
@@ -592,7 +610,9 @@ mod tests {
         row.ssl_verify_server = 2; // not 0 and not 1
 
         let conn = row.into_connection("pw".into(), None, None);
-        let ssl = conn.ssl_config.unwrap();
+        let ssl = conn
+            .ssl_config
+            .expect("ssl_config should be Some when ssl_enabled=1");
         // Production code: `self.ssl_verify_server == 1`, so 2 maps to false
         assert!(!ssl.verify_server);
     }
