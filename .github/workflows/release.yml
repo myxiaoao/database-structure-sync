@@ -9,8 +9,50 @@ permissions:
   contents: write
 
 jobs:
+  check:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Run frontend tests
+        run: npm run test -- --run
+
+      - name: Run Rust tests
+        run: cargo test
+        working-directory: src-tauri
+
   release:
     name: Release (${{ matrix.platform }})
+    needs: check
     strategy:
       fail-fast: false
       matrix:
@@ -61,14 +103,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify signing key is configured
-        shell: bash
-        run: |
-          if [ -z "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" ]; then
-            echo "::error::TAURI_SIGNING_PRIVATE_KEY secret is not configured. See https://v2.tauri.app/plugin/updater/#signing-updates"
-            exit 1
-          fi
-
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -84,120 +118,3 @@ jobs:
           prerelease: false
           args: --target ${{ matrix.target }}
           updaterJsonPreferNsis: true
-
-      - name: Upload updater artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: updater-${{ matrix.os }}-${{ matrix.arch }}
-          path: |
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.sig
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.tar.gz
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.tar.gz.sig
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.AppImage.sig
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.deb
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.rpm
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dmg
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.app
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.msi.sig
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.nsis.zip
-            src-tauri/target/${{ matrix.target }}/release/bundle/**/*.nsis.zip.sig
-          retention-days: 1
-          if-no-files-found: ignore
-
-  assemble-latest-json:
-    name: Assemble latest.json
-    needs: release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Get version from tag
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
-
-      - name: Generate latest.json
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          TAG="${{ github.ref_name }}"
-          NOTES="See the assets to download this version and install."
-          PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-          # Initialize platforms object
-          cat > latest.json << EOF
-          {
-            "version": "${VERSION}",
-            "notes": "${NOTES}",
-            "pub_date": "${PUB_DATE}",
-            "platforms": {}
-          }
-          EOF
-
-          # Function to add platform entry
-          add_platform() {
-            local platform=$1
-            local url=$2
-            local sig=$3
-
-            if [ -n "$sig" ]; then
-              jq --arg platform "$platform" \
-                 --arg url "$url" \
-                 --arg sig "$sig" \
-                 '.platforms[$platform] = {"url": $url, "signature": $sig}' \
-                 latest.json > latest.json.tmp && mv latest.json.tmp latest.json
-            fi
-          }
-
-          REPO="myxiaoao/database-structure-sync"
-          BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
-
-          # Find and process signature files
-          echo "Searching for signature files..."
-          find artifacts -name "*.sig" -type f | while read sigfile; do
-            echo "Found: $sigfile"
-            sig=$(cat "$sigfile" 2>/dev/null || echo "")
-            basename=$(basename "$sigfile" .sig)
-
-            case "$basename" in
-              *.tar.gz)
-                # macOS tarball
-                if [[ "$sigfile" == *"darwin"* ]] || [[ "$sigfile" == *"macos"* ]]; then
-                  if [[ "$sigfile" == *"aarch64"* ]] || [[ "$basename" == *"aarch64"* ]]; then
-                    add_platform "darwin-aarch64" "${BASE_URL}/${basename}" "$sig"
-                  elif [[ "$sigfile" == *"x86_64"* ]] || [[ "$basename" == *"x64"* ]]; then
-                    add_platform "darwin-x86_64" "${BASE_URL}/${basename}" "$sig"
-                  fi
-                fi
-                ;;
-              *.AppImage)
-                # Linux AppImage
-                add_platform "linux-x86_64" "${BASE_URL}/${basename}" "$sig"
-                ;;
-              *.nsis.zip)
-                # Windows NSIS installer
-                add_platform "windows-x86_64" "${BASE_URL}/${basename}" "$sig"
-                ;;
-              *.msi)
-                # Windows MSI (fallback if no NSIS)
-                # Only add if windows platform not already set
-                if ! jq -e '.platforms["windows-x86_64"]' latest.json > /dev/null 2>&1; then
-                  add_platform "windows-x86_64" "${BASE_URL}/${basename}" "$sig"
-                fi
-                ;;
-            esac
-          done
-
-          echo "Generated latest.json:"
-          cat latest.json
-
-      - name: Upload latest.json to release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload ${{ github.ref_name }} latest.json --clobber
