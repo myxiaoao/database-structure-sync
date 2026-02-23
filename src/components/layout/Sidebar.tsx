@@ -111,7 +111,7 @@ export function Sidebar({
           className="w-full h-7 text-xs flex items-center justify-center"
           size="sm"
         >
-          <Plus className="h-3.5 w-3.5 mr-1.5 shrink-0" />
+          <Plus className="h-3.5 w-3.5 shrink-0" />
           <span>{t("connection.new")}</span>
         </Button>
       </div>

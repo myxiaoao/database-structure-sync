@@ -83,7 +83,7 @@ function DiffItemRow({
 
   return (
     <div
-      className="flex items-center gap-1.5 py-1 px-2 rounded cursor-pointer hover:bg-muted/80 ml-5 text-xs"
+      className="flex items-center gap-1.5 py-1 pl-1.5 pr-2 rounded cursor-pointer hover:bg-muted/80 text-xs"
       onClick={onClick}
     >
       <Checkbox
@@ -172,7 +172,7 @@ function TableGroup({
         </span>
       </div>
       {isExpanded && (
-        <div className="border-l border-muted ml-2">
+        <div className="border-l border-muted ml-[47px]">
           {group.items.map((item) => (
             <DiffItemRow
               key={item.id}
