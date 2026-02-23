@@ -20,6 +20,144 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Connection, ConnectionInput } from "@/lib/api";
+import type { DbType } from "@/types";
+
+type SshAuthMethod = "Password" | "PrivateKey";
+
+interface FormData {
+  id?: string;
+  name: string;
+  db_type: DbType;
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  database: string;
+  ssh_enabled: boolean;
+  ssh_host: string;
+  ssh_port: number;
+  ssh_username: string;
+  ssh_auth_method: SshAuthMethod;
+  ssh_password: string;
+  ssh_private_key_path: string;
+  ssh_passphrase: string;
+  ssl_enabled: boolean;
+  ssl_ca_cert_path: string;
+  ssl_client_cert_path: string;
+  ssl_client_key_path: string;
+  ssl_verify_server_cert: boolean;
+}
+
+const DEFAULT_FORM_DATA: FormData = {
+  name: "",
+  db_type: "MySQL",
+  host: "localhost",
+  port: 3306,
+  username: "",
+  password: "",
+  database: "",
+  ssh_enabled: false,
+  ssh_host: "",
+  ssh_port: 22,
+  ssh_username: "",
+  ssh_auth_method: "Password",
+  ssh_password: "",
+  ssh_private_key_path: "",
+  ssh_passphrase: "",
+  ssl_enabled: false,
+  ssl_ca_cert_path: "",
+  ssl_client_cert_path: "",
+  ssl_client_key_path: "",
+  ssl_verify_server_cert: true,
+};
+
+function toConnectionInput(form: FormData): ConnectionInput {
+  const input: ConnectionInput = {
+    id: form.id,
+    name: form.name,
+    db_type: form.db_type,
+    host: form.host,
+    port: form.port,
+    username: form.username,
+    password: form.password,
+    database: form.database,
+  };
+
+  if (form.ssh_enabled) {
+    input.ssh_config = {
+      enabled: true,
+      host: form.ssh_host,
+      port: form.ssh_port,
+      username: form.ssh_username,
+      auth_method:
+        form.ssh_auth_method === "PrivateKey"
+          ? {
+              privatekey: {
+                private_key_path: form.ssh_private_key_path,
+                passphrase: form.ssh_passphrase || undefined,
+              },
+            }
+          : { password: { password: form.ssh_password } },
+    };
+  }
+
+  if (form.ssl_enabled) {
+    input.ssl_config = {
+      enabled: true,
+      ca_cert_path: form.ssl_ca_cert_path || undefined,
+      client_cert_path: form.ssl_client_cert_path || undefined,
+      client_key_path: form.ssl_client_key_path || undefined,
+      verify_server: form.ssl_verify_server_cert,
+    };
+  }
+
+  return input;
+}
+
+function fromConnection(conn: Connection): FormData {
+  const sshConfig = conn.ssh_config;
+  const sslConfig = conn.ssl_config;
+
+  let sshAuthMethod: SshAuthMethod = "Password";
+  let sshPassword = "";
+  let sshPrivateKeyPath = "";
+  let sshPassphrase = "";
+
+  if (sshConfig) {
+    if ("privatekey" in sshConfig.auth_method) {
+      sshAuthMethod = "PrivateKey";
+      sshPrivateKeyPath = sshConfig.auth_method.privatekey.private_key_path;
+      sshPassphrase = sshConfig.auth_method.privatekey.passphrase ?? "";
+    } else if ("password" in sshConfig.auth_method) {
+      sshAuthMethod = "Password";
+      sshPassword = sshConfig.auth_method.password.password;
+    }
+  }
+
+  return {
+    id: conn.id,
+    name: conn.name,
+    db_type: conn.db_type,
+    host: conn.host,
+    port: conn.port,
+    username: conn.username,
+    password: conn.password,
+    database: conn.database,
+    ssh_enabled: sshConfig?.enabled ?? false,
+    ssh_host: sshConfig?.host ?? "",
+    ssh_port: sshConfig?.port ?? 22,
+    ssh_username: sshConfig?.username ?? "",
+    ssh_auth_method: sshAuthMethod,
+    ssh_password: sshPassword,
+    ssh_private_key_path: sshPrivateKeyPath,
+    ssh_passphrase: sshPassphrase,
+    ssl_enabled: sslConfig?.enabled ?? false,
+    ssl_ca_cert_path: sslConfig?.ca_cert_path ?? "",
+    ssl_client_cert_path: sslConfig?.client_cert_path ?? "",
+    ssl_client_key_path: sslConfig?.client_key_path ?? "",
+    ssl_verify_server_cert: sslConfig?.verify_server ?? true,
+  };
+}
 
 interface ConnectionFormProps {
   open: boolean;
@@ -47,65 +185,23 @@ export function ConnectionForm({
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  const [formData, setFormData] = useState<ConnectionInput>({
-    name: "",
-    db_type: "MySQL",
-    host: "localhost",
-    port: 3306,
-    username: "",
-    password: "",
-    database: "",
-    ssh_enabled: false,
-    ssl_enabled: false,
-  });
+  const [formData, setFormData] = useState<FormData>({ ...DEFAULT_FORM_DATA });
 
   useEffect(() => {
     if (connection) {
-      setFormData({
-        id: connection.id,
-        name: connection.name,
-        db_type: connection.db_type,
-        host: connection.host,
-        port: connection.port,
-        username: connection.username,
-        password: connection.password,
-        database: connection.database,
-        ssh_enabled: connection.ssh_enabled,
-        ssh_host: connection.ssh_host,
-        ssh_port: connection.ssh_port,
-        ssh_username: connection.ssh_username,
-        ssh_auth_method: connection.ssh_auth_method,
-        ssh_password: connection.ssh_password,
-        ssh_private_key_path: connection.ssh_private_key_path,
-        ssh_passphrase: connection.ssh_passphrase,
-        ssl_enabled: connection.ssl_enabled,
-        ssl_ca_cert_path: connection.ssl_ca_cert_path,
-        ssl_client_cert_path: connection.ssl_client_cert_path,
-        ssl_client_key_path: connection.ssl_client_key_path,
-        ssl_verify_server_cert: connection.ssl_verify_server_cert,
-      });
+      setFormData(fromConnection(connection));
     } else {
-      setFormData({
-        name: "",
-        db_type: "MySQL",
-        host: "localhost",
-        port: 3306,
-        username: "",
-        password: "",
-        database: "",
-        ssh_enabled: false,
-        ssl_enabled: false,
-      });
+      setFormData({ ...DEFAULT_FORM_DATA });
     }
     setTestResult(null);
   }, [connection, open]);
 
-  const updateField = <K extends keyof ConnectionInput>(key: K, value: ConnectionInput[K]) => {
+  const updateField = <K extends keyof FormData>(key: K, value: FormData[K]) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
     setTestResult(null);
   };
 
-  const handleDbTypeChange = (value: "MySQL" | "PostgreSQL" | "MariaDB") => {
+  const handleDbTypeChange = (value: DbType) => {
     setFormData((prev) => ({
       ...prev,
       db_type: value,
@@ -118,7 +214,7 @@ export function ConnectionForm({
     setTesting(true);
     setTestResult(null);
     try {
-      await onTest(formData);
+      await onTest(toConnectionInput(formData));
       setTestResult({ success: true, message: t("connection.testSuccess") });
     } catch (err) {
       setTestResult({
@@ -133,7 +229,7 @@ export function ConnectionForm({
   const handleSave = async () => {
     setLoading(true);
     try {
-      await onSave(formData);
+      await onSave(toConnectionInput(formData));
       onOpenChange(false);
     } catch (err) {
       setTestResult({
@@ -286,7 +382,7 @@ export function ConnectionForm({
                     </Label>
                     <Input
                       id="ssh_host"
-                      value={formData.ssh_host || ""}
+                      value={formData.ssh_host}
                       onChange={(e) => updateField("ssh_host", e.target.value)}
                       className="h-8 text-sm"
                     />
@@ -298,7 +394,7 @@ export function ConnectionForm({
                     <Input
                       id="ssh_port"
                       type="number"
-                      value={formData.ssh_port || 22}
+                      value={formData.ssh_port}
                       onChange={(e) => updateField("ssh_port", parseInt(e.target.value) || 22)}
                       className="h-8 text-sm"
                     />
@@ -311,7 +407,7 @@ export function ConnectionForm({
                   </Label>
                   <Input
                     id="ssh_username"
-                    value={formData.ssh_username || ""}
+                    value={formData.ssh_username}
                     onChange={(e) => updateField("ssh_username", e.target.value)}
                     className="h-8 text-sm"
                   />
@@ -320,7 +416,7 @@ export function ConnectionForm({
                 <div className="space-y-1">
                   <Label className="text-xs">{t("connection.sshAuthMethod")}</Label>
                   <Select
-                    value={formData.ssh_auth_method || "Password"}
+                    value={formData.ssh_auth_method}
                     onValueChange={(value: "Password" | "PrivateKey") =>
                       updateField("ssh_auth_method", value)
                     }
@@ -343,7 +439,7 @@ export function ConnectionForm({
                       </Label>
                       <Input
                         id="ssh_private_key_path"
-                        value={formData.ssh_private_key_path || ""}
+                        value={formData.ssh_private_key_path}
                         onChange={(e) => updateField("ssh_private_key_path", e.target.value)}
                         placeholder="~/.ssh/id_rsa"
                         className="h-8 text-sm"
@@ -356,7 +452,7 @@ export function ConnectionForm({
                       <Input
                         id="ssh_passphrase"
                         type="password"
-                        value={formData.ssh_passphrase || ""}
+                        value={formData.ssh_passphrase}
                         onChange={(e) => updateField("ssh_passphrase", e.target.value)}
                         className="h-8 text-sm"
                       />
@@ -370,7 +466,7 @@ export function ConnectionForm({
                     <Input
                       id="ssh_password"
                       type="password"
-                      value={formData.ssh_password || ""}
+                      value={formData.ssh_password}
                       onChange={(e) => updateField("ssh_password", e.target.value)}
                       className="h-8 text-sm"
                     />
@@ -401,7 +497,7 @@ export function ConnectionForm({
                   </Label>
                   <Input
                     id="ssl_ca_cert_path"
-                    value={formData.ssl_ca_cert_path || ""}
+                    value={formData.ssl_ca_cert_path}
                     onChange={(e) => updateField("ssl_ca_cert_path", e.target.value)}
                     placeholder="/path/to/ca-cert.pem"
                     className="h-8 text-sm"
@@ -413,7 +509,7 @@ export function ConnectionForm({
                   </Label>
                   <Input
                     id="ssl_client_cert_path"
-                    value={formData.ssl_client_cert_path || ""}
+                    value={formData.ssl_client_cert_path}
                     onChange={(e) => updateField("ssl_client_cert_path", e.target.value)}
                     placeholder="/path/to/client-cert.pem"
                     className="h-8 text-sm"
@@ -425,7 +521,7 @@ export function ConnectionForm({
                   </Label>
                   <Input
                     id="ssl_client_key_path"
-                    value={formData.ssl_client_key_path || ""}
+                    value={formData.ssl_client_key_path}
                     onChange={(e) => updateField("ssl_client_key_path", e.target.value)}
                     placeholder="/path/to/client-key.pem"
                     className="h-8 text-sm"
@@ -434,7 +530,7 @@ export function ConnectionForm({
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="ssl_verify_server_cert"
-                    checked={formData.ssl_verify_server_cert ?? true}
+                    checked={formData.ssl_verify_server_cert}
                     onCheckedChange={(checked) =>
                       updateField("ssl_verify_server_cert", checked === true)
                     }

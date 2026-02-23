@@ -1,5 +1,4 @@
 export type DbType = "MySQL" | "PostgreSQL" | "MariaDB";
-export type SshAuthMethod = "Password" | "PrivateKey";
 
 export type DiffType =
   | "TableAdded"
@@ -17,6 +16,26 @@ export type DiffType =
   | "UniqueConstraintRemoved"
   | "UniqueConstraintModified";
 
+export type SshAuthMethodConfig =
+  | { password: { password: string } }
+  | { privatekey: { private_key_path: string; passphrase?: string } };
+
+export interface SshConfig {
+  enabled: boolean;
+  host: string;
+  port: number;
+  username: string;
+  auth_method: SshAuthMethodConfig;
+}
+
+export interface SslConfig {
+  enabled: boolean;
+  ca_cert_path?: string;
+  client_cert_path?: string;
+  client_key_path?: string;
+  verify_server: boolean;
+}
+
 interface ConnectionBase {
   name: string;
   db_type: DbType;
@@ -25,19 +44,8 @@ interface ConnectionBase {
   username: string;
   password: string;
   database: string;
-  ssh_enabled: boolean;
-  ssh_host?: string;
-  ssh_port?: number;
-  ssh_username?: string;
-  ssh_auth_method?: SshAuthMethod;
-  ssh_password?: string;
-  ssh_private_key_path?: string;
-  ssh_passphrase?: string;
-  ssl_enabled: boolean;
-  ssl_ca_cert_path?: string;
-  ssl_client_cert_path?: string;
-  ssl_client_key_path?: string;
-  ssl_verify_server_cert?: boolean;
+  ssh_config?: SshConfig;
+  ssl_config?: SslConfig;
 }
 
 export interface Connection extends ConnectionBase {

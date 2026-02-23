@@ -15,8 +15,6 @@ const mockConnections: Connection[] = [
     username: "root",
     password: "password",
     database: "source_db",
-    ssh_enabled: false,
-    ssl_enabled: false,
   },
   {
     id: "target-id",
@@ -27,8 +25,6 @@ const mockConnections: Connection[] = [
     username: "root",
     password: "password",
     database: "target_db",
-    ssh_enabled: false,
-    ssl_enabled: false,
   },
 ];
 

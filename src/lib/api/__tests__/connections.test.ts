@@ -19,8 +19,6 @@ const mockConnection: Connection = {
   username: "root",
   password: "password",
   database: "test_db",
-  ssh_enabled: false,
-  ssl_enabled: false,
 };
 
 const mockConnectionInput: ConnectionInput = {
@@ -31,8 +29,6 @@ const mockConnectionInput: ConnectionInput = {
   username: "root",
   password: "password",
   database: "test_db",
-  ssh_enabled: false,
-  ssl_enabled: false,
 };
 
 describe("connectionsApi", () => {

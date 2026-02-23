@@ -9,5 +9,7 @@ export type {
   DiffResult,
   DiffItem,
   DbType,
-  SshAuthMethod,
+  SshConfig,
+  SslConfig,
+  SshAuthMethodConfig,
 } from "@/types";

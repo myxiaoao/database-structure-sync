@@ -27,8 +27,6 @@ const mockConnections: Connection[] = [
     username: "root",
     password: "password",
     database: "test1",
-    ssh_enabled: false,
-    ssl_enabled: false,
   },
   {
     id: "2",
@@ -39,8 +37,6 @@ const mockConnections: Connection[] = [
     username: "postgres",
     password: "password",
     database: "test2",
-    ssh_enabled: false,
-    ssl_enabled: false,
   },
 ];
 

@@ -14,8 +14,6 @@ const mockConnection: Connection = {
   username: "root",
   password: "password",
   database: "test_db",
-  ssh_enabled: false,
-  ssl_enabled: false,
 };
 
 vi.mock("sonner", () => ({

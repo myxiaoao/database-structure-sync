@@ -13,8 +13,6 @@ const mockConnection: Connection = {
   username: "root",
   password: "password",
   database: "test_db",
-  ssh_enabled: false,
-  ssl_enabled: false,
 };
 
 const mockConnections: Connection[] = [
@@ -28,8 +26,6 @@ const mockConnections: Connection[] = [
     username: "postgres",
     password: "password",
     database: "test_db",
-    ssh_enabled: false,
-    ssl_enabled: false,
   },
 ];
 
@@ -163,8 +159,6 @@ describe("useConnections", () => {
       username: "root",
       password: "password",
       database: "new_db",
-      ssh_enabled: false,
-      ssl_enabled: false,
     };
 
     mockInvoke
@@ -218,8 +212,6 @@ describe("useConnections", () => {
       username: "root",
       password: "password",
       database: "test_db",
-      ssh_enabled: false,
-      ssl_enabled: false,
     };
 
     mockInvoke.mockResolvedValueOnce([]).mockResolvedValueOnce(undefined);
@@ -256,8 +248,6 @@ describe("useConnections", () => {
       username: "root",
       password: "password",
       database: "new_db",
-      ssh_enabled: false,
-      ssl_enabled: false,
     };
 
     mockInvoke
@@ -340,8 +330,6 @@ describe("useConnections", () => {
       username: "root",
       password: "password",
       database: "test_db",
-      ssh_enabled: false,
-      ssl_enabled: false,
     };
 
     mockInvoke
@@ -374,8 +362,6 @@ describe("useConnections", () => {
       username: "root",
       password: "wrong_password",
       database: "test_db",
-      ssh_enabled: false,
-      ssl_enabled: false,
     };
 
     mockInvoke

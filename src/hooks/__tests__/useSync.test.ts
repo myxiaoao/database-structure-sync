@@ -14,8 +14,6 @@ const mockConnections: Connection[] = [
     username: "root",
     password: "password",
     database: "source_db",
-    ssh_enabled: false,
-    ssl_enabled: false,
   },
   {
     id: "target-id",
@@ -26,8 +24,6 @@ const mockConnections: Connection[] = [
     username: "root",
     password: "password",
     database: "target_db",
-    ssh_enabled: false,
-    ssl_enabled: false,
   },
   {
     id: "no-db-id",
@@ -38,8 +34,6 @@ const mockConnections: Connection[] = [
     username: "root",
     password: "password",
     database: "",
-    ssh_enabled: false,
-    ssl_enabled: false,
   },
 ];
 
@@ -370,8 +364,6 @@ describe("useSync", () => {
         username: "postgres",
         password: "password",
         database: "source_db",
-        ssh_enabled: false,
-        ssl_enabled: false,
       },
       {
         id: "pg-target",
@@ -382,8 +374,6 @@ describe("useSync", () => {
         username: "postgres",
         password: "password",
         database: "target_db",
-        ssh_enabled: false,
-        ssl_enabled: false,
       },
     ];
 
@@ -620,8 +610,6 @@ describe("useSync", () => {
         username: "root",
         password: "password",
         database: "",
-        ssh_enabled: false,
-        ssl_enabled: false,
       },
       {
         id: "no-db-2",
@@ -632,8 +620,6 @@ describe("useSync", () => {
         username: "root",
         password: "password",
         database: "",
-        ssh_enabled: false,
-        ssl_enabled: false,
       },
     ];
 
@@ -751,8 +737,6 @@ describe("useSync", () => {
         username: "root",
         password: "password",
         database: "source_db",
-        ssh_enabled: false,
-        ssl_enabled: false,
       },
       {
         id: "maria-target",
@@ -763,8 +747,6 @@ describe("useSync", () => {
         username: "root",
         password: "password",
         database: "target_db",
-        ssh_enabled: false,
-        ssl_enabled: false,
       },
     ];
 
