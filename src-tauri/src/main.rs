@@ -401,8 +401,7 @@ async fn save_sql_file(file_path: String, content: String) -> Result<(), String>
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        // To enable auto-update, configure updater in tauri.conf.json with a valid pubkey
-        // and uncomment: .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_log::Builder::new()
