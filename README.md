@@ -10,19 +10,23 @@ A cross-platform desktop application for comparing and synchronizing database ta
 
 - **Multi-Database Support**: MySQL, PostgreSQL, and MariaDB
 - **Visual Schema Comparison**: Side-by-side diff view of database structures
+- **Comprehensive Diff Detection**:
+  - Tables: add / drop
+  - Columns: add / drop / modify (type, nullable, default, etc.)
+  - Indexes: add / drop / modify
+  - Foreign Keys: add / drop / modify
+  - Unique Constraints: add / drop / modify
 - **Selective Sync**: Choose which changes to apply
 - **SQL Preview**: Review generated SQL before execution
+- **SQL Export**: Export sync scripts to `.sql` files
 - **Secure Connections**:
   - SSH tunnel support for secure remote connections
   - SSL/TLS encryption support
   - Passwords stored in system keychain
+- **Auto Update**: In-app update notifications via Tauri updater plugin
 - **Cross-Platform**: Windows, macOS, and Linux
 - **Internationalization**: English and Chinese language support
 - **Dark/Light Mode**: Automatic theme detection with manual override
-
-## Screenshots
-
-*Coming soon*
 
 ## Installation
 
@@ -39,7 +43,7 @@ Download the latest release for your platform from the [Releases](https://github
 #### Prerequisites
 
 - [Node.js](https://nodejs.org/) 20.x or later
-- [Rust](https://www.rust-lang.org/) 1.70 or later
+- [Rust](https://www.rust-lang.org/) 1.85 or later
 - Platform-specific dependencies:
 
 **macOS:**
@@ -108,14 +112,17 @@ The built application will be in `src-tauri/target/release/bundle/`.
 │   ├── components/         # UI components
 │   ├── hooks/              # React hooks
 │   ├── lib/                # Utilities and API
-│   └── locales/            # i18n translations
+│   ├── locales/            # i18n translations
+│   ├── types/              # TypeScript type definitions
+│   └── test/               # Test utilities and setup
 ├── src-tauri/              # Rust backend
 │   ├── src/
-│   │   ├── db/             # Database drivers
+│   │   ├── db/             # Database drivers & SQL generators
 │   │   ├── diff/           # Schema comparison
 │   │   ├── models/         # Data models
 │   │   ├── ssh/            # SSH tunnel
-│   │   └── storage/        # Config storage
+│   │   ├── storage/        # Config storage
+│   │   └── error.rs        # Error types
 │   └── tests/              # Integration tests
 └── public/                 # Static assets
 ```
@@ -129,10 +136,14 @@ The built application will be in `src-tauri/target/release/bundle/`.
 - react-i18next for internationalization
 
 ### Backend
-- Rust with Tauri 2.x
+- Rust (edition 2024) with Tauri 2.x
 - SQLx for database connections
+- Tokio async runtime
 - russh for SSH tunnels
-- System keychain for secure password storage
+- keyring for system keychain integration
+- thiserror / anyhow for error handling
+- tauri-plugin-updater for auto updates
+- tauri-plugin-dialog for native dialogs
 
 ## Development
 
@@ -147,6 +158,24 @@ cd src-tauri && cargo test
 
 # Type checking
 npm run build
+```
+
+### Linting & Formatting
+
+```bash
+# Lint frontend code
+npm run lint
+npm run lint:fix
+
+# Format frontend code
+npm run format
+npm run format:check
+
+# Lint Rust code
+cd src-tauri && cargo clippy
+
+# Format Rust code
+cd src-tauri && cargo fmt
 ```
 
 ## Contributing
