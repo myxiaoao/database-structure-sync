@@ -74,7 +74,8 @@
     "expandAll": "Expand All",
     "collapseAll": "Collapse All",
     "noChanges": "No structural differences found",
-    "changes": "differences"
+    "changes": "differences",
+    "crossDbWarning": "Source ({{source}}) and target ({{target}}) have different database types. Cross-database type sync is not supported"
   },
   "diff": {
     "tableAdded": "New Table",

@@ -74,7 +74,8 @@
     "expandAll": "展开全部",
     "collapseAll": "收起全部",
     "noChanges": "未发现结构差异",
-    "changes": "项差异"
+    "changes": "项差异",
+    "crossDbWarning": "源数据库 ({{source}}) 与目标数据库 ({{target}}) 类型不同，暂不支持跨数据库类型的结构同步"
   },
   "diff": {
     "tableAdded": "新建表",

@@ -55,6 +55,33 @@ export function SyncPage({ connections }: SyncPageProps) {
     isExporting,
   } = useSync({ connections });
 
+  const sourceConnection = connections.find((c) => c.id === sourceId);
+  const targetConnection = connections.find((c) => c.id === targetId);
+
+  const mysqlFamily = new Set<string>(["mysql", "mariadb"]);
+  const isCrossDbType =
+    sourceConnection &&
+    targetConnection &&
+    sourceConnection.db_type !== targetConnection.db_type &&
+    !(mysqlFamily.has(sourceConnection.db_type) && mysqlFamily.has(targetConnection.db_type));
+
+  const onCompare = useCallback(() => {
+    if (isCrossDbType) {
+      toast.warning(
+        t("sync.crossDbWarning", {
+          source:
+            DB_TYPE_LABELS[(sourceConnection?.db_type as DbType) || ""] ||
+            sourceConnection?.db_type,
+          target:
+            DB_TYPE_LABELS[(targetConnection?.db_type as DbType) || ""] ||
+            targetConnection?.db_type,
+        })
+      );
+      return;
+    }
+    handleCompare();
+  }, [isCrossDbType, sourceConnection, targetConnection, handleCompare, t]);
+
   const onExportSql = useCallback(async () => {
     try {
       const success = await handleExportSql();
@@ -161,7 +188,7 @@ export function SyncPage({ connections }: SyncPageProps) {
             </Select>
           )}
           <Button
-            onClick={handleCompare}
+            onClick={onCompare}
             disabled={!canCompare || isComparing}
             size="sm"
             className="h-8 shrink-0"
