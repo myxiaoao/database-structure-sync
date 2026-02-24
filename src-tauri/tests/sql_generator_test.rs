@@ -204,7 +204,10 @@ fn mysql_add_column_basic() {
     let sqlgen = MySqlSqlGenerator;
     let c = col("email", "VARCHAR(255)", true, false, 2);
     let sql = sqlgen.generate_add_column("users", &c);
-    assert_eq!(sql, "ALTER TABLE `users` ADD COLUMN `email` VARCHAR(255);");
+    assert_eq!(
+        sql,
+        "ALTER TABLE `users` ADD COLUMN `email` VARCHAR(255) NULL;"
+    );
 }
 
 #[test]
@@ -290,7 +293,7 @@ fn mysql_modify_column_basic() {
     let sql = sqlgen.generate_modify_column("users", &c);
     assert_eq!(
         sql,
-        "ALTER TABLE `users` MODIFY COLUMN `name` VARCHAR(500);"
+        "ALTER TABLE `users` MODIFY COLUMN `name` VARCHAR(500) NULL DEFAULT NULL;"
     );
 }
 

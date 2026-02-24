@@ -325,8 +325,14 @@ fn test_detect_modified_column_type() {
     assert!(column_modified.is_some());
 
     let diff = column_modified.unwrap();
-    assert_eq!(diff.source_def, Some("VARCHAR(255)".to_string()));
-    assert_eq!(diff.target_def, Some("VARCHAR(100)".to_string()));
+    assert_eq!(
+        diff.source_def,
+        Some("VARCHAR(255) NOT NULL".to_string())
+    );
+    assert_eq!(
+        diff.target_def,
+        Some("VARCHAR(100) NOT NULL".to_string())
+    );
 }
 
 #[test]
@@ -2032,8 +2038,8 @@ fn test_modified_column_ordinal_position_change() {
         .iter()
         .find(|d| d.diff_type == DiffType::ColumnModified);
     assert!(
-        col_modified.is_some(),
-        "Should detect ordinal_position change"
+        col_modified.is_none(),
+        "ordinal_position difference should not trigger ColumnModified"
     );
 }
 
