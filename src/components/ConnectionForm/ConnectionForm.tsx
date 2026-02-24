@@ -227,7 +227,14 @@ export function ConnectionForm({
     }
   };
 
+  const canSave =
+    formData.name.trim() !== "" &&
+    formData.host.trim() !== "" &&
+    formData.port > 0 &&
+    formData.username.trim() !== "";
+
   const handleSave = async () => {
+    if (!canSave) return;
     setLoading(true);
     try {
       await onSave(toConnectionInput(formData));
@@ -244,7 +251,14 @@ export function ConnectionForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
+      <DialogContent
+        className="max-w-xl max-h-[85vh] overflow-y-auto"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && e.target instanceof HTMLInputElement) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader className="pb-2">
           <DialogTitle className="text-base">
             {connection ? t("connection.edit") : t("connection.new")}
@@ -568,7 +582,12 @@ export function ConnectionForm({
           >
             {testing ? t("connection.testing") : t("connection.test")}
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={loading || testing} className="h-8">
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={!canSave || loading || testing}
+            className="h-8"
+          >
             {loading ? t("connection.saving") : t("connection.save")}
           </Button>
         </DialogFooter>
