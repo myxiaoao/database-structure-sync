@@ -184,10 +184,17 @@ impl MySqlDriver {
     async fn get_indexes(&self, table_name: &str) -> Result<Vec<Index>> {
         let rows: Vec<(String, i32, String, String)> = sqlx::query_as(
             r#"
-            SELECT CAST(index_name AS CHAR), non_unique, CAST(column_name AS CHAR), CAST(index_type AS CHAR)
-            FROM information_schema.statistics
-            WHERE table_schema = DATABASE() AND table_name = ? AND index_name != 'PRIMARY'
-            ORDER BY index_name, seq_in_index
+            SELECT CAST(s.index_name AS CHAR), s.non_unique, CAST(s.column_name AS CHAR), CAST(s.index_type AS CHAR)
+            FROM information_schema.statistics s
+            WHERE s.table_schema = DATABASE() AND s.table_name = ? AND s.index_name != 'PRIMARY'
+                AND NOT EXISTS (
+                    SELECT 1 FROM information_schema.table_constraints tc
+                    WHERE tc.table_schema = s.table_schema
+                        AND tc.table_name = s.table_name
+                        AND tc.constraint_name = s.index_name
+                        AND tc.constraint_type = 'UNIQUE'
+                )
+            ORDER BY s.index_name, s.seq_in_index
             "#
         )
         .bind(table_name)
@@ -318,6 +325,8 @@ impl SqlGenerator for MySqlSqlGenerator {
             let mut col_def = format!("  {} {}", self.quote_identifier(&col.name), col.data_type);
             if !col.nullable {
                 col_def.push_str(" NOT NULL");
+            } else {
+                col_def.push_str(" NULL");
             }
             if let Some(default) = &col.default_value {
                 col_def.push_str(&format!(" DEFAULT {}", default));
@@ -408,6 +417,8 @@ impl SqlGenerator for MySqlSqlGenerator {
         );
         if !column.nullable {
             sql.push_str(" NOT NULL");
+        } else {
+            sql.push_str(" NULL");
         }
         if let Some(default) = &column.default_value {
             sql.push_str(&format!(" DEFAULT {}", default));
@@ -439,9 +450,13 @@ impl SqlGenerator for MySqlSqlGenerator {
         );
         if !column.nullable {
             sql.push_str(" NOT NULL");
+        } else {
+            sql.push_str(" NULL");
         }
         if let Some(default) = &column.default_value {
             sql.push_str(&format!(" DEFAULT {}", default));
+        } else if column.nullable {
+            sql.push_str(" DEFAULT NULL");
         }
         if column.auto_increment {
             sql.push_str(" AUTO_INCREMENT");

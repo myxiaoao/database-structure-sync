@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
     pub data_type: String,
@@ -9,6 +9,17 @@ pub struct Column {
     pub auto_increment: bool,
     pub comment: Option<String>,
     pub ordinal_position: u32,
+}
+
+impl PartialEq for Column {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.data_type == other.data_type
+            && self.nullable == other.nullable
+            && self.default_value == other.default_value
+            && self.auto_increment == other.auto_increment
+            && self.comment == other.comment
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

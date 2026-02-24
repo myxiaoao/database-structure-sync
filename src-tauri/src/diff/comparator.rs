@@ -1,6 +1,27 @@
+use log::debug;
+
 use crate::db::SqlGenerator;
 use crate::models::*;
 use std::collections::HashMap;
+
+fn column_detail(col: &Column) -> String {
+    let mut parts = vec![col.data_type.clone()];
+    if col.nullable {
+        parts.push("NULL".to_string());
+    } else {
+        parts.push("NOT NULL".to_string());
+    }
+    if let Some(default) = &col.default_value {
+        parts.push(format!("DEFAULT {}", default));
+    }
+    if col.auto_increment {
+        parts.push("AUTO_INCREMENT".to_string());
+    }
+    if let Some(comment) = &col.comment {
+        parts.push(format!("COMMENT '{}'", comment));
+    }
+    parts.join(" ")
+}
 
 pub fn compare_schemas(
     source: &[TableSchema],
@@ -99,14 +120,18 @@ fn compare_tables(
             });
         } else if let Some(target_col) = target_cols.get(col.name.as_str()) {
             if col != *target_col {
+                debug!(
+                    "Column diff detected: {}.{} | source: {:?} | target: {:?}",
+                    source.name, col.name, col, target_col
+                );
                 *id_counter += 1;
                 diffs.push(DiffItem {
                     id: id_counter.to_string(),
                     diff_type: DiffType::ColumnModified,
                     table_name: source.name.clone(),
                     object_name: Some(col.name.clone()),
-                    source_def: Some(col.data_type.clone()),
-                    target_def: Some(target_col.data_type.clone()),
+                    source_def: Some(column_detail(col)),
+                    target_def: Some(column_detail(target_col)),
                     sql: sql_gen.generate_modify_column(&source.name, col),
                     selected: true,
                 });

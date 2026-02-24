@@ -185,6 +185,10 @@ impl PostgresDriver {
             JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey)
             WHERE t.relname = $1 AND t.relnamespace = 'public'::regnamespace
                 AND NOT ix.indisprimary
+                AND NOT EXISTS (
+                    SELECT 1 FROM pg_constraint c
+                    WHERE c.conindid = ix.indexrelid AND c.contype = 'u'
+                )
             ORDER BY i.relname, array_position(ix.indkey, a.attnum)
             "#,
         )

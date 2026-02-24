@@ -166,7 +166,7 @@ export function useSync({ connections }: UseSyncOptions) {
     );
     const body = selectedDiffs.map((item) => item.sql).join("\n\n");
     const footer = generateSqlFooter(dbType);
-    return header + "\n" + body + footer;
+    return header + "\n" + body + "\n" + footer;
   }, [diffResult, selectedItems, sourceConnection, targetConnection, sourceDb, targetDb]);
 
   const handleExecute = useCallback(async () => {

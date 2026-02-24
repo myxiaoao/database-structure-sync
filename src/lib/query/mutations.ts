@@ -4,6 +4,12 @@ import { connectionsApi, syncApi } from "@/lib/api";
 import type { ConnectionInput } from "@/types";
 import { connectionKeys } from "./queries";
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return String(error);
+}
+
 export function useSaveConnectionMutation() {
   const queryClient = useQueryClient();
 
@@ -14,7 +20,7 @@ export function useSaveConnectionMutation() {
       toast.success("Connection saved successfully");
     },
     onError: (error) => {
-      toast.error(`Failed to save connection: ${error.message}`);
+      toast.error(`Failed to save connection: ${getErrorMessage(error)}`);
     },
   });
 }
@@ -29,7 +35,7 @@ export function useDeleteConnectionMutation() {
       toast.success("Connection deleted successfully");
     },
     onError: (error) => {
-      toast.error(`Failed to delete connection: ${error.message}`);
+      toast.error(`Failed to delete connection: ${getErrorMessage(error)}`);
     },
   });
 }
@@ -41,7 +47,7 @@ export function useTestConnectionMutation() {
       toast.success("Connection test successful");
     },
     onError: (error) => {
-      toast.error(`Connection test failed: ${error.message}`);
+      toast.error(`Connection test failed: ${getErrorMessage(error)}`);
     },
   });
 }
@@ -50,7 +56,7 @@ export function useCompareMutation() {
   return useMutation({
     mutationFn: syncApi.compare,
     onError: (error) => {
-      toast.error(`Comparison failed: ${error.message}`);
+      toast.error(`Comparison failed: ${getErrorMessage(error)}`);
     },
   });
 }
@@ -62,7 +68,7 @@ export function useExecuteSyncMutation() {
       toast.success("Sync executed successfully");
     },
     onError: (error) => {
-      toast.error(`Sync failed: ${error.message}`);
+      toast.error(`Sync failed: ${getErrorMessage(error)}`);
     },
   });
 }

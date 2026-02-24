@@ -272,6 +272,29 @@ describe("useExecuteSyncMutation", () => {
     expect(mockToast.error).toHaveBeenCalledWith("Sync failed: Sync failed");
   });
 
+  it("should handle string errors from Tauri invoke", async () => {
+    mockInvoke.mockRejectedValue("Failed to execute: ALTER TABLE ...\nError: Access denied");
+
+    const { result } = renderHook(() => useExecuteSyncMutation(), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      try {
+        await result.current.mutateAsync({
+          targetId: "target-id",
+          sqlStatements: ["ALTER TABLE ..."],
+        });
+      } catch {
+        // Expected to throw
+      }
+    });
+
+    expect(mockToast.error).toHaveBeenCalledWith(
+      "Sync failed: Failed to execute: ALTER TABLE ...\nError: Access denied"
+    );
+  });
+
   it("should pass targetDatabase parameter", async () => {
     mockInvoke.mockResolvedValue(undefined);
 
