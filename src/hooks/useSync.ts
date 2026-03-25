@@ -5,7 +5,7 @@ import { syncApi } from "@/lib/api/sync";
 import { DB_TYPE_LABELS } from "@/types";
 import type { DiffItem, DiffResult, Connection, DbType } from "@/types";
 
-const APP_VERSION = "1.0.0";
+const APP_VERSION = __APP_VERSION__;
 
 function generateSqlHeader(
   sourceConn: Connection | undefined,

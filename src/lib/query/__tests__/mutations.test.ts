@@ -21,6 +21,15 @@ vi.mock("sonner", () => ({
   },
 }));
 
+vi.mock("i18next", () => ({
+  default: {
+    t: (key: string, opts?: Record<string, unknown>) => {
+      if (opts && opts.error !== undefined) return `${key}:${opts.error}`;
+      return key;
+    },
+  },
+}));
+
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 
@@ -71,7 +80,7 @@ describe("useSaveConnectionMutation", () => {
     expect(mockInvoke).toHaveBeenCalledWith("save_connection", {
       input: mockConnectionInput,
     });
-    expect(mockToast.success).toHaveBeenCalledWith("Connection saved successfully");
+    expect(mockToast.success).toHaveBeenCalledWith("connection.saveSuccess");
   });
 
   it("should show error toast on failure", async () => {
@@ -89,7 +98,7 @@ describe("useSaveConnectionMutation", () => {
       }
     });
 
-    expect(mockToast.error).toHaveBeenCalledWith("Failed to save connection: Save failed");
+    expect(mockToast.error).toHaveBeenCalledWith("connection.saveFailed:Save failed");
   });
 });
 
@@ -110,7 +119,7 @@ describe("useDeleteConnectionMutation", () => {
     });
 
     expect(mockInvoke).toHaveBeenCalledWith("delete_connection", { id: "test-id" });
-    expect(mockToast.success).toHaveBeenCalledWith("Connection deleted successfully");
+    expect(mockToast.success).toHaveBeenCalledWith("connection.deleteSuccess");
   });
 
   it("should show error toast on failure", async () => {
@@ -128,7 +137,7 @@ describe("useDeleteConnectionMutation", () => {
       }
     });
 
-    expect(mockToast.error).toHaveBeenCalledWith("Failed to delete connection: Delete failed");
+    expect(mockToast.error).toHaveBeenCalledWith("connection.deleteFailed:Delete failed");
   });
 });
 
@@ -151,7 +160,7 @@ describe("useTestConnectionMutation", () => {
     expect(mockInvoke).toHaveBeenCalledWith("test_connection", {
       input: mockConnectionInput,
     });
-    expect(mockToast.success).toHaveBeenCalledWith("Connection test successful");
+    expect(mockToast.success).toHaveBeenCalledWith("connection.testSuccess");
   });
 
   it("should show error toast on failure", async () => {
@@ -169,7 +178,7 @@ describe("useTestConnectionMutation", () => {
       }
     });
 
-    expect(mockToast.error).toHaveBeenCalledWith("Connection test failed: Connection refused");
+    expect(mockToast.error).toHaveBeenCalledWith("connection.testFailed:Connection refused");
   });
 });
 
@@ -220,7 +229,7 @@ describe("useCompareMutation", () => {
       }
     });
 
-    expect(mockToast.error).toHaveBeenCalledWith("Comparison failed: Comparison failed");
+    expect(mockToast.error).toHaveBeenCalledWith("sync.compareFailed:Comparison failed");
   });
 });
 
@@ -248,7 +257,7 @@ describe("useExecuteSyncMutation", () => {
       sqlStatements: ["CREATE TABLE users (id INT);"],
       targetDatabase: undefined,
     });
-    expect(mockToast.success).toHaveBeenCalledWith("Sync executed successfully");
+    expect(mockToast.success).toHaveBeenCalledWith("sync.executeSuccess");
   });
 
   it("should show error toast on failure", async () => {
@@ -269,7 +278,7 @@ describe("useExecuteSyncMutation", () => {
       }
     });
 
-    expect(mockToast.error).toHaveBeenCalledWith("Sync failed: Sync failed");
+    expect(mockToast.error).toHaveBeenCalledWith("sync.executeFailed:Sync failed");
   });
 
   it("should handle string errors from Tauri invoke", async () => {
@@ -291,7 +300,7 @@ describe("useExecuteSyncMutation", () => {
     });
 
     expect(mockToast.error).toHaveBeenCalledWith(
-      "Sync failed: Failed to execute: ALTER TABLE ...\nError: Access denied"
+      "sync.executeFailed:Failed to execute: ALTER TABLE ...\nError: Access denied"
     );
   });
 

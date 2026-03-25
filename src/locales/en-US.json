@@ -21,8 +21,12 @@
     "username": "Username",
     "password": "Password",
     "database": "Database",
-    "testSuccess": "Connection successful",
-    "testFailed": "Connection failed",
+    "saveSuccess": "Connection saved successfully",
+    "saveFailed": "Failed to save connection: {{error}}",
+    "deleteSuccess": "Connection deleted successfully",
+    "deleteFailed": "Failed to delete connection: {{error}}",
+    "testSuccess": "Connection test successful",
+    "testFailed": "Connection test failed: {{error}}",
     "basicTab": "Basic",
     "sshTab": "SSH",
     "sslTab": "SSL",
@@ -75,7 +79,10 @@
     "collapseAll": "Collapse All",
     "noChanges": "No structural differences found",
     "changes": "differences",
-    "crossDbWarning": "Source ({{source}}) and target ({{target}}) have different database types. Cross-database type sync is not supported"
+    "crossDbWarning": "Source ({{source}}) and target ({{target}}) have different database types. Cross-database type sync is not supported",
+    "executeSuccess": "Sync executed successfully",
+    "executeFailed": "Sync failed: {{error}}",
+    "compareFailed": "Comparison failed: {{error}}"
   },
   "diff": {
     "tableAdded": "New Table",

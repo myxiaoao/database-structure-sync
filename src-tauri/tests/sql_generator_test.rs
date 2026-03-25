@@ -622,7 +622,6 @@ fn cross_gen_drop_index_syntax_difference() {
 }
 
 #[test]
-#[test]
 fn mysql_fk_invalid_action_falls_back() {
     let sqlgen = MySqlSqlGenerator;
     let fk = ForeignKey {
