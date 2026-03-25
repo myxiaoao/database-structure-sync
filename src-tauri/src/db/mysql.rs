@@ -2,6 +2,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use sqlx::{MySql, Pool, mysql::MySqlPoolOptions};
 
+use super::validate_fk_action;
 use crate::db::traits::{SchemaReader, SqlGenerator};
 use crate::models::*;
 
@@ -303,13 +304,6 @@ impl MySqlDriver {
 }
 
 pub struct MySqlSqlGenerator;
-
-fn validate_fk_action(action: &str) -> &str {
-    match action.to_uppercase().as_str() {
-        "CASCADE" | "SET NULL" | "SET DEFAULT" | "RESTRICT" | "NO ACTION" => action,
-        _ => "NO ACTION",
-    }
-}
 
 impl SqlGenerator for MySqlSqlGenerator {
     fn quote_identifier(&self, name: &str) -> String {
