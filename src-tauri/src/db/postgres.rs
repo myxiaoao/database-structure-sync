@@ -81,33 +81,29 @@ impl SchemaReader for PostgresDriver {
         .fetch_all(&self.pool)
         .await?;
 
-        let mut tables = Vec::new();
-        for (table_name,) in table_names {
-            let columns = self.get_columns(&table_name).await?;
-            let primary_key = self.get_primary_key(&table_name).await?;
-            let indexes = self.get_indexes(&table_name).await?;
-            let foreign_keys = self.get_foreign_keys(&table_name).await?;
-            let unique_constraints = self.get_unique_constraints(&table_name).await?;
-
-            tables.push(TableSchema {
-                name: table_name,
-                columns,
-                primary_key,
-                indexes,
-                foreign_keys,
-                unique_constraints,
-            });
-        }
-
-        Ok(tables)
+        let table_names: Vec<String> = table_names.into_iter().map(|(n,)| n).collect();
+        let columns = self.fetch_all_columns().await?;
+        let pks = self.fetch_all_primary_keys().await?;
+        let indexes = self.fetch_all_indexes().await?;
+        let fks = self.fetch_all_foreign_keys().await?;
+        let ucs = self.fetch_all_unique_constraints().await?;
+        Ok(super::assemble_schemas(
+            table_names,
+            columns,
+            pks,
+            indexes,
+            fks,
+            ucs,
+        ))
     }
 }
 
 impl PostgresDriver {
-    async fn get_columns(&self, table_name: &str) -> Result<Vec<Column>> {
-        let rows: Vec<(String, String, String, Option<String>, i32)> = sqlx::query_as(
+    async fn fetch_all_columns(&self) -> Result<Vec<super::ColumnRow>> {
+        let rows: Vec<(String, String, String, String, Option<String>, i32)> = sqlx::query_as(
             r#"
             SELECT
+                table_name,
                 column_name,
                 CASE
                     WHEN data_type = 'character varying' THEN 'varchar(' || character_maximum_length || ')'
@@ -119,22 +115,22 @@ impl PostgresDriver {
                 column_default,
                 ordinal_position
             FROM information_schema.columns
-            WHERE table_schema = 'public' AND table_name = $1
-            ORDER BY ordinal_position
+            WHERE table_schema = 'public'
+            ORDER BY table_name, ordinal_position
             "#
         )
-        .bind(table_name)
         .fetch_all(&self.pool)
         .await?;
 
         Ok(rows
             .into_iter()
-            .map(|(name, data_type, nullable, default, pos)| {
+            .map(|(table_name, name, data_type, nullable, default, pos)| {
                 let auto_increment = default
                     .as_ref()
                     .map(|d| d.starts_with("nextval("))
                     .unwrap_or(false);
-                Column {
+                super::ColumnRow {
+                    table_name,
                     name,
                     data_type,
                     nullable: nullable == "YES",
@@ -147,34 +143,35 @@ impl PostgresDriver {
             .collect())
     }
 
-    async fn get_primary_key(&self, table_name: &str) -> Result<Option<PrimaryKey>> {
-        let rows: Vec<(String, String)> = sqlx::query_as(
+    async fn fetch_all_primary_keys(&self) -> Result<Vec<super::PkRow>> {
+        let rows: Vec<(String, String, String)> = sqlx::query_as(
             r#"
-            SELECT tc.constraint_name, kcu.column_name
+            SELECT tc.table_name, tc.constraint_name, kcu.column_name
             FROM information_schema.table_constraints tc
             JOIN information_schema.key_column_usage kcu
                 ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-            WHERE tc.table_schema = 'public' AND tc.table_name = $1 AND tc.constraint_type = 'PRIMARY KEY'
-            ORDER BY kcu.ordinal_position
-            "#
+            WHERE tc.table_schema = 'public' AND tc.constraint_type = 'PRIMARY KEY'
+            ORDER BY tc.table_name, kcu.ordinal_position
+            "#,
         )
-        .bind(table_name)
         .fetch_all(&self.pool)
         .await?;
 
-        if rows.is_empty() {
-            return Ok(None);
-        }
-
-        let name = rows.first().map(|(n, _)| n.clone());
-        let columns: Vec<String> = rows.into_iter().map(|(_, col)| col).collect();
-        Ok(Some(PrimaryKey { name, columns }))
+        Ok(rows
+            .into_iter()
+            .map(|(table_name, constraint_name, column_name)| super::PkRow {
+                table_name,
+                constraint_name: Some(constraint_name),
+                column_name,
+            })
+            .collect())
     }
 
-    async fn get_indexes(&self, table_name: &str) -> Result<Vec<Index>> {
-        let rows: Vec<(String, bool, String, String)> = sqlx::query_as(
+    async fn fetch_all_indexes(&self) -> Result<Vec<super::IndexRow>> {
+        let rows: Vec<(String, String, bool, String, String)> = sqlx::query_as(
             r#"
             SELECT
+                t.relname as table_name,
                 i.relname as index_name,
                 ix.indisunique as is_unique,
                 a.attname as column_name,
@@ -184,43 +181,37 @@ impl PostgresDriver {
             JOIN pg_class i ON i.oid = ix.indexrelid
             JOIN pg_am am ON i.relam = am.oid
             JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey)
-            WHERE t.relname = $1 AND t.relnamespace = 'public'::regnamespace
+            WHERE t.relnamespace = 'public'::regnamespace
                 AND NOT ix.indisprimary
                 AND NOT EXISTS (
                     SELECT 1 FROM pg_constraint c
                     WHERE c.conindid = ix.indexrelid AND c.contype = 'u'
                 )
-            ORDER BY i.relname, array_position(ix.indkey, a.attnum)
+            ORDER BY t.relname, i.relname, array_position(ix.indkey, a.attnum)
             "#,
         )
-        .bind(table_name)
         .fetch_all(&self.pool)
         .await?;
 
-        let mut indexes_map: std::collections::HashMap<String, (bool, String, Vec<String>)> =
-            std::collections::HashMap::new();
-        for (name, unique, column, idx_type) in rows {
-            let entry = indexes_map
-                .entry(name)
-                .or_insert((unique, idx_type, Vec::new()));
-            entry.2.push(column);
-        }
-
-        Ok(indexes_map
+        Ok(rows
             .into_iter()
-            .map(|(name, (unique, idx_type, columns))| Index {
-                name,
-                columns,
-                unique,
-                index_type: idx_type,
-            })
+            .map(
+                |(table_name, index_name, is_unique, column_name, index_type)| super::IndexRow {
+                    table_name,
+                    index_name,
+                    column_name,
+                    is_unique,
+                    index_type,
+                },
+            )
             .collect())
     }
 
-    async fn get_foreign_keys(&self, table_name: &str) -> Result<Vec<ForeignKey>> {
-        let rows: Vec<(String, String, String, String, String, String)> = sqlx::query_as(
+    async fn fetch_all_foreign_keys(&self) -> Result<Vec<super::FkRow>> {
+        let rows: Vec<(String, String, String, String, String, String, String)> = sqlx::query_as(
             r#"
             SELECT
+                tc.table_name,
                 tc.constraint_name,
                 kcu.column_name,
                 ccu.table_name AS ref_table,
@@ -231,68 +222,59 @@ impl PostgresDriver {
             JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
             JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name
             JOIN information_schema.referential_constraints rc ON tc.constraint_name = rc.constraint_name
-            WHERE tc.table_schema = 'public' AND tc.table_name = $1 AND tc.constraint_type = 'FOREIGN KEY'
-            ORDER BY tc.constraint_name, kcu.ordinal_position
+            WHERE tc.table_schema = 'public' AND tc.constraint_type = 'FOREIGN KEY'
+            ORDER BY tc.table_name, tc.constraint_name, kcu.ordinal_position
             "#
         )
-        .bind(table_name)
         .fetch_all(&self.pool)
         .await?;
 
-        let mut fks_map: std::collections::HashMap<
-            String,
-            (String, Vec<String>, Vec<String>, String, String),
-        > = std::collections::HashMap::new();
-        for (name, col, ref_table, ref_col, on_delete, on_update) in rows {
-            let entry = fks_map.entry(name).or_insert((
-                ref_table,
-                Vec::new(),
-                Vec::new(),
-                on_delete,
-                on_update,
-            ));
-            entry.1.push(col);
-            entry.2.push(ref_col);
-        }
-
-        Ok(fks_map
+        Ok(rows
             .into_iter()
             .map(
-                |(name, (ref_table, columns, ref_columns, on_delete, on_update))| ForeignKey {
-                    name,
-                    columns,
+                |(
+                    table_name,
+                    constraint_name,
+                    column_name,
                     ref_table,
-                    ref_columns,
+                    ref_column,
                     on_delete,
                     on_update,
+                )| {
+                    super::FkRow {
+                        table_name,
+                        constraint_name,
+                        column_name,
+                        ref_table,
+                        ref_column,
+                        on_delete,
+                        on_update,
+                    }
                 },
             )
             .collect())
     }
 
-    async fn get_unique_constraints(&self, table_name: &str) -> Result<Vec<UniqueConstraint>> {
-        let rows: Vec<(String, String)> = sqlx::query_as(
+    async fn fetch_all_unique_constraints(&self) -> Result<Vec<super::UcRow>> {
+        let rows: Vec<(String, String, String)> = sqlx::query_as(
             r#"
-            SELECT tc.constraint_name, kcu.column_name
+            SELECT tc.table_name, tc.constraint_name, kcu.column_name
             FROM information_schema.table_constraints tc
             JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
-            WHERE tc.table_schema = 'public' AND tc.table_name = $1 AND tc.constraint_type = 'UNIQUE'
-            ORDER BY tc.constraint_name, kcu.ordinal_position
-            "#
+            WHERE tc.table_schema = 'public' AND tc.constraint_type = 'UNIQUE'
+            ORDER BY tc.table_name, tc.constraint_name, kcu.ordinal_position
+            "#,
         )
-        .bind(table_name)
         .fetch_all(&self.pool)
         .await?;
 
-        let mut ucs_map: std::collections::HashMap<String, Vec<String>> =
-            std::collections::HashMap::new();
-        for (name, col) in rows {
-            ucs_map.entry(name).or_default().push(col);
-        }
-
-        Ok(ucs_map
+        Ok(rows
             .into_iter()
-            .map(|(name, columns)| UniqueConstraint { name, columns })
+            .map(|(table_name, constraint_name, column_name)| super::UcRow {
+                table_name,
+                constraint_name,
+                column_name,
+            })
             .collect())
     }
 }

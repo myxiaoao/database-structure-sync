@@ -87,31 +87,27 @@ impl SchemaReader for MySqlDriver {
         .fetch_all(&self.pool)
         .await?;
 
-        let mut tables = Vec::new();
-        for (table_name,) in table_names {
-            let columns = self.get_columns(&table_name).await?;
-            let primary_key = self.get_primary_key(&table_name).await?;
-            let indexes = self.get_indexes(&table_name).await?;
-            let foreign_keys = self.get_foreign_keys(&table_name).await?;
-            let unique_constraints = self.get_unique_constraints(&table_name).await?;
-
-            tables.push(TableSchema {
-                name: table_name,
-                columns,
-                primary_key,
-                indexes,
-                foreign_keys,
-                unique_constraints,
-            });
-        }
-
-        Ok(tables)
+        let table_names: Vec<String> = table_names.into_iter().map(|(n,)| n).collect();
+        let columns = self.fetch_all_columns().await?;
+        let pks = self.fetch_all_primary_keys().await?;
+        let indexes = self.fetch_all_indexes().await?;
+        let fks = self.fetch_all_foreign_keys().await?;
+        let ucs = self.fetch_all_unique_constraints().await?;
+        Ok(super::assemble_schemas(
+            table_names,
+            columns,
+            pks,
+            indexes,
+            fks,
+            ucs,
+        ))
     }
 }
 
 impl MySqlDriver {
-    async fn get_columns(&self, table_name: &str) -> Result<Vec<Column>> {
+    async fn fetch_all_columns(&self) -> Result<Vec<super::ColumnRow>> {
         let rows: Vec<(
+            String,
             String,
             String,
             String,
@@ -122,6 +118,7 @@ impl MySqlDriver {
         )> = sqlx::query_as(
             r#"
             SELECT
+                CAST(table_name AS CHAR),
                 CAST(column_name AS CHAR),
                 CAST(column_type AS CHAR),
                 CAST(is_nullable AS CHAR),
@@ -130,64 +127,64 @@ impl MySqlDriver {
                 CAST(column_comment AS CHAR),
                 ordinal_position
             FROM information_schema.columns
-            WHERE table_schema = DATABASE() AND table_name = ?
-            ORDER BY ordinal_position
+            WHERE table_schema = DATABASE()
+            ORDER BY table_name, ordinal_position
             "#,
         )
-        .bind(table_name)
         .fetch_all(&self.pool)
         .await?;
 
         Ok(rows
             .into_iter()
             .map(
-                |(name, data_type, nullable, default, extra, comment, pos)| Column {
-                    name,
-                    data_type,
-                    nullable: nullable == "YES",
-                    default_value: default,
-                    auto_increment: extra.contains("auto_increment"),
-                    comment: if comment.as_ref().map(|c| c.is_empty()).unwrap_or(true) {
-                        None
-                    } else {
-                        comment
-                    },
-                    ordinal_position: pos,
+                |(table_name, name, data_type, nullable, default, extra, comment, pos)| {
+                    super::ColumnRow {
+                        table_name,
+                        name,
+                        data_type,
+                        nullable: nullable == "YES",
+                        default_value: default,
+                        auto_increment: extra.contains("auto_increment"),
+                        comment: if comment.as_ref().map(|c| c.is_empty()).unwrap_or(true) {
+                            None
+                        } else {
+                            comment
+                        },
+                        ordinal_position: pos,
+                    }
                 },
             )
             .collect())
     }
 
-    async fn get_primary_key(&self, table_name: &str) -> Result<Option<PrimaryKey>> {
-        let rows: Vec<(String, String)> = sqlx::query_as(
+    async fn fetch_all_primary_keys(&self) -> Result<Vec<super::PkRow>> {
+        let rows: Vec<(String, String, String)> = sqlx::query_as(
             r#"
-            SELECT CAST(constraint_name AS CHAR), CAST(column_name AS CHAR)
+            SELECT CAST(table_name AS CHAR), CAST(constraint_name AS CHAR), CAST(column_name AS CHAR)
             FROM information_schema.key_column_usage
-            WHERE table_schema = DATABASE() AND table_name = ? AND constraint_name = 'PRIMARY'
-            ORDER BY ordinal_position
+            WHERE table_schema = DATABASE() AND constraint_name = 'PRIMARY'
+            ORDER BY table_name, ordinal_position
             "#,
         )
-        .bind(table_name)
         .fetch_all(&self.pool)
         .await?;
 
-        if rows.is_empty() {
-            return Ok(None);
-        }
-
-        let columns: Vec<String> = rows.into_iter().map(|(_, col)| col).collect();
-        Ok(Some(PrimaryKey {
-            name: Some("PRIMARY".to_string()),
-            columns,
-        }))
+        Ok(rows
+            .into_iter()
+            .map(|(table_name, constraint_name, column_name)| super::PkRow {
+                table_name,
+                constraint_name: Some(constraint_name),
+                column_name,
+            })
+            .collect())
     }
 
-    async fn get_indexes(&self, table_name: &str) -> Result<Vec<Index>> {
-        let rows: Vec<(String, i32, String, String)> = sqlx::query_as(
+    async fn fetch_all_indexes(&self) -> Result<Vec<super::IndexRow>> {
+        let rows: Vec<(String, String, i32, String, String)> = sqlx::query_as(
             r#"
-            SELECT CAST(s.index_name AS CHAR), s.non_unique, CAST(s.column_name AS CHAR), CAST(s.index_type AS CHAR)
+            SELECT CAST(s.table_name AS CHAR), CAST(s.index_name AS CHAR), s.non_unique, CAST(s.column_name AS CHAR), CAST(s.index_type AS CHAR)
             FROM information_schema.statistics s
-            WHERE s.table_schema = DATABASE() AND s.table_name = ? AND s.index_name != 'PRIMARY'
+            WHERE s.table_schema = DATABASE() AND s.index_name != 'PRIMARY'
                 AND NOT EXISTS (
                     SELECT 1 FROM information_schema.table_constraints tc
                     WHERE tc.table_schema = s.table_schema
@@ -195,37 +192,31 @@ impl MySqlDriver {
                         AND tc.constraint_name = s.index_name
                         AND tc.constraint_type = 'UNIQUE'
                 )
-            ORDER BY s.index_name, s.seq_in_index
+            ORDER BY s.table_name, s.index_name, s.seq_in_index
             "#
         )
-        .bind(table_name)
         .fetch_all(&self.pool)
         .await?;
 
-        let mut indexes_map: std::collections::HashMap<String, (bool, String, Vec<String>)> =
-            std::collections::HashMap::new();
-        for (name, non_unique, column, idx_type) in rows {
-            let entry = indexes_map
-                .entry(name)
-                .or_insert((non_unique == 0, idx_type, Vec::new()));
-            entry.2.push(column);
-        }
-
-        Ok(indexes_map
+        Ok(rows
             .into_iter()
-            .map(|(name, (unique, idx_type, columns))| Index {
-                name,
-                columns,
-                unique,
-                index_type: idx_type,
-            })
+            .map(
+                |(table_name, index_name, non_unique, column_name, index_type)| super::IndexRow {
+                    table_name,
+                    index_name,
+                    column_name,
+                    is_unique: non_unique == 0,
+                    index_type,
+                },
+            )
             .collect())
     }
 
-    async fn get_foreign_keys(&self, table_name: &str) -> Result<Vec<ForeignKey>> {
-        let rows: Vec<(String, String, String, String, String, String)> = sqlx::query_as(
+    async fn fetch_all_foreign_keys(&self) -> Result<Vec<super::FkRow>> {
+        let rows: Vec<(String, String, String, String, String, String, String)> = sqlx::query_as(
             r#"
             SELECT
+                CAST(kcu.table_name AS CHAR),
                 CAST(kcu.constraint_name AS CHAR),
                 CAST(kcu.column_name AS CHAR),
                 CAST(kcu.referenced_table_name AS CHAR),
@@ -235,70 +226,60 @@ impl MySqlDriver {
             FROM information_schema.key_column_usage kcu
             JOIN information_schema.referential_constraints rc
                 ON kcu.constraint_name = rc.constraint_name AND kcu.table_schema = rc.constraint_schema
-            WHERE kcu.table_schema = DATABASE() AND kcu.table_name = ? AND kcu.referenced_table_name IS NOT NULL
-            ORDER BY kcu.constraint_name, kcu.ordinal_position
+            WHERE kcu.table_schema = DATABASE() AND kcu.referenced_table_name IS NOT NULL
+            ORDER BY kcu.table_name, kcu.constraint_name, kcu.ordinal_position
             "#
         )
-        .bind(table_name)
         .fetch_all(&self.pool)
         .await?;
 
-        let mut fks_map: std::collections::HashMap<
-            String,
-            (String, String, Vec<String>, Vec<String>, String, String),
-        > = std::collections::HashMap::new();
-        for (name, col, ref_table, ref_col, on_delete, on_update) in rows {
-            let entry = fks_map.entry(name.clone()).or_insert((
-                name,
-                ref_table,
-                Vec::new(),
-                Vec::new(),
-                on_delete,
-                on_update,
-            ));
-            entry.2.push(col);
-            entry.3.push(ref_col);
-        }
-
-        Ok(fks_map
+        Ok(rows
             .into_iter()
             .map(
-                |(_, (name, ref_table, columns, ref_columns, on_delete, on_update))| ForeignKey {
-                    name,
-                    columns,
+                |(
+                    table_name,
+                    constraint_name,
+                    column_name,
                     ref_table,
-                    ref_columns,
+                    ref_column,
                     on_delete,
                     on_update,
+                )| {
+                    super::FkRow {
+                        table_name,
+                        constraint_name,
+                        column_name,
+                        ref_table,
+                        ref_column,
+                        on_delete,
+                        on_update,
+                    }
                 },
             )
             .collect())
     }
 
-    async fn get_unique_constraints(&self, table_name: &str) -> Result<Vec<UniqueConstraint>> {
-        let rows: Vec<(String, String)> = sqlx::query_as(
+    async fn fetch_all_unique_constraints(&self) -> Result<Vec<super::UcRow>> {
+        let rows: Vec<(String, String, String)> = sqlx::query_as(
             r#"
-            SELECT CAST(tc.constraint_name AS CHAR), CAST(kcu.column_name AS CHAR)
+            SELECT CAST(tc.table_name AS CHAR), CAST(tc.constraint_name AS CHAR), CAST(kcu.column_name AS CHAR)
             FROM information_schema.table_constraints tc
             JOIN information_schema.key_column_usage kcu
-                ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-            WHERE tc.table_schema = DATABASE() AND tc.table_name = ? AND tc.constraint_type = 'UNIQUE'
-            ORDER BY tc.constraint_name, kcu.ordinal_position
+                ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema AND tc.table_name = kcu.table_name
+            WHERE tc.table_schema = DATABASE() AND tc.constraint_type = 'UNIQUE'
+            ORDER BY tc.table_name, tc.constraint_name, kcu.ordinal_position
             "#
         )
-        .bind(table_name)
         .fetch_all(&self.pool)
         .await?;
 
-        let mut ucs_map: std::collections::HashMap<String, Vec<String>> =
-            std::collections::HashMap::new();
-        for (name, col) in rows {
-            ucs_map.entry(name).or_default().push(col);
-        }
-
-        Ok(ucs_map
+        Ok(rows
             .into_iter()
-            .map(|(name, columns)| UniqueConstraint { name, columns })
+            .map(|(table_name, constraint_name, column_name)| super::UcRow {
+                table_name,
+                constraint_name,
+                column_name,
+            })
             .collect())
     }
 }
