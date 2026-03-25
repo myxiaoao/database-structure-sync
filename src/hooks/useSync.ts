@@ -1,8 +1,6 @@
 import { useState, useMemo, useCallback } from "react";
-import { save } from "@tauri-apps/plugin-dialog";
 import { useDatabasesQuery, useCompareMutation, useExecuteSyncMutation } from "@/lib/query";
-import { syncApi } from "@/lib/api/sync";
-import { generateSqlHeader, generateSqlFooter } from "@/lib/sql";
+import { generateSqlHeader, generateSqlFooter, exportSqlFile } from "@/lib/sql";
 import type { DiffItem, DiffResult, Connection } from "@/types";
 
 interface UseSyncOptions {
@@ -130,17 +128,7 @@ export function useSync({ connections }: UseSyncOptions) {
 
     setIsExporting(true);
     try {
-      const filePath = await save({
-        defaultPath: "sync.sql",
-        filters: [{ name: "SQL", extensions: ["sql"] }],
-      });
-
-      if (!filePath) {
-        return false;
-      }
-
-      await syncApi.saveSqlFile(filePath, selectedSql);
-      return true;
+      return await exportSqlFile(selectedSql);
     } finally {
       setIsExporting(false);
     }

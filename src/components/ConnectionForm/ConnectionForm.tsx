@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -56,6 +57,9 @@ export function ConnectionForm({
           <DialogTitle className="text-base">
             {connection ? t("connection.edit") : t("connection.new")}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            {connection ? t("connection.edit") : t("connection.new")}
+          </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="basic" className="w-full">
