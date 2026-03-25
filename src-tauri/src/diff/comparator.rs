@@ -4,6 +4,106 @@ use crate::db::SqlGenerator;
 use crate::models::*;
 use std::collections::HashMap;
 
+trait NamedItem {
+    fn name(&self) -> &str;
+}
+
+impl NamedItem for Column {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+impl NamedItem for Index {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+impl NamedItem for ForeignKey {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+impl NamedItem for UniqueConstraint {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+struct DiffConfig<'a, T> {
+    table_name: &'a str,
+    source_items: &'a [T],
+    target_items: &'a [T],
+    added_type: DiffType,
+    removed_type: DiffType,
+    modified_type: DiffType,
+    source_def: fn(&T) -> String,
+    target_def: fn(&T) -> String,
+    generate_add: fn(&dyn SqlGenerator, &str, &T) -> String,
+    generate_drop: fn(&dyn SqlGenerator, &str, &str) -> String,
+}
+
+fn compare_named_items<T: NamedItem + PartialEq>(
+    config: &DiffConfig<T>,
+    sql_gen: &dyn SqlGenerator,
+    id_counter: &mut u32,
+    diffs: &mut Vec<DiffItem>,
+) {
+    let source_map: HashMap<&str, &T> = config.source_items.iter().map(|i| (i.name(), i)).collect();
+    let target_map: HashMap<&str, &T> = config.target_items.iter().map(|i| (i.name(), i)).collect();
+
+    // Added + Modified
+    for item in config.source_items {
+        if !target_map.contains_key(item.name()) {
+            *id_counter += 1;
+            diffs.push(DiffItem {
+                id: id_counter.to_string(),
+                diff_type: config.added_type.clone(),
+                table_name: config.table_name.to_string(),
+                object_name: Some(item.name().to_string()),
+                source_def: Some((config.source_def)(item)),
+                target_def: None,
+                sql: (config.generate_add)(sql_gen, config.table_name, item),
+                selected: true,
+            });
+        } else if let Some(target_item) = target_map.get(item.name()) {
+            if item != *target_item {
+                *id_counter += 1;
+                diffs.push(DiffItem {
+                    id: id_counter.to_string(),
+                    diff_type: config.modified_type.clone(),
+                    table_name: config.table_name.to_string(),
+                    object_name: Some(item.name().to_string()),
+                    source_def: Some((config.source_def)(item)),
+                    target_def: Some((config.target_def)(target_item)),
+                    sql: format!(
+                        "{}\n{}",
+                        (config.generate_drop)(sql_gen, config.table_name, item.name()),
+                        (config.generate_add)(sql_gen, config.table_name, item)
+                    ),
+                    selected: true,
+                });
+            }
+        }
+    }
+
+    // Removed
+    for item in config.target_items {
+        if !source_map.contains_key(item.name()) {
+            *id_counter += 1;
+            diffs.push(DiffItem {
+                id: id_counter.to_string(),
+                diff_type: config.removed_type.clone(),
+                table_name: config.table_name.to_string(),
+                object_name: Some(item.name().to_string()),
+                source_def: None,
+                target_def: Some((config.target_def)(item)),
+                sql: (config.generate_drop)(sql_gen, config.table_name, item.name()),
+                selected: true,
+            });
+        }
+    }
+}
+
 fn column_detail(col: &Column) -> String {
     let mut parts = vec![col.data_type.clone()];
     if col.nullable {
@@ -156,188 +256,59 @@ fn compare_tables(
     }
 
     // Compare indexes
-    let source_idx: HashMap<&str, &Index> = source
-        .indexes
-        .iter()
-        .map(|i| (i.name.as_str(), i))
-        .collect();
-    let target_idx: HashMap<&str, &Index> = target
-        .indexes
-        .iter()
-        .map(|i| (i.name.as_str(), i))
-        .collect();
-
-    for idx in &source.indexes {
-        if !target_idx.contains_key(idx.name.as_str()) {
-            *id_counter += 1;
-            diffs.push(DiffItem {
-                id: id_counter.to_string(),
-                diff_type: DiffType::IndexAdded,
-                table_name: source.name.clone(),
-                object_name: Some(idx.name.clone()),
-                source_def: Some(idx.columns.join(", ")),
-                target_def: None,
-                sql: sql_gen.generate_add_index(&source.name, idx),
-                selected: true,
-            });
-        } else if let Some(target_index) = target_idx.get(idx.name.as_str()) {
-            if idx != *target_index {
-                *id_counter += 1;
-                diffs.push(DiffItem {
-                    id: id_counter.to_string(),
-                    diff_type: DiffType::IndexModified,
-                    table_name: source.name.clone(),
-                    object_name: Some(idx.name.clone()),
-                    source_def: Some(idx.columns.join(", ")),
-                    target_def: Some(target_index.columns.join(", ")),
-                    sql: format!(
-                        "{}\n{}",
-                        sql_gen.generate_drop_index(&source.name, &idx.name),
-                        sql_gen.generate_add_index(&source.name, idx)
-                    ),
-                    selected: true,
-                });
-            }
-        }
-    }
-
-    for idx in &target.indexes {
-        if !source_idx.contains_key(idx.name.as_str()) {
-            *id_counter += 1;
-            diffs.push(DiffItem {
-                id: id_counter.to_string(),
-                diff_type: DiffType::IndexRemoved,
-                table_name: source.name.clone(),
-                object_name: Some(idx.name.clone()),
-                source_def: None,
-                target_def: Some(idx.columns.join(", ")),
-                sql: sql_gen.generate_drop_index(&source.name, &idx.name),
-                selected: true,
-            });
-        }
-    }
+    compare_named_items(
+        &DiffConfig {
+            table_name: &source.name,
+            source_items: &source.indexes,
+            target_items: &target.indexes,
+            added_type: DiffType::IndexAdded,
+            removed_type: DiffType::IndexRemoved,
+            modified_type: DiffType::IndexModified,
+            source_def: |idx| idx.columns.join(", "),
+            target_def: |idx| idx.columns.join(", "),
+            generate_add: |sg, t, idx| sg.generate_add_index(t, idx),
+            generate_drop: |sg, t, name| sg.generate_drop_index(t, name),
+        },
+        sql_gen,
+        id_counter,
+        diffs,
+    );
 
     // Compare foreign keys
-    let source_fks: HashMap<&str, &ForeignKey> = source
-        .foreign_keys
-        .iter()
-        .map(|f| (f.name.as_str(), f))
-        .collect();
-    let target_fks: HashMap<&str, &ForeignKey> = target
-        .foreign_keys
-        .iter()
-        .map(|f| (f.name.as_str(), f))
-        .collect();
-
-    for fk in &source.foreign_keys {
-        if !target_fks.contains_key(fk.name.as_str()) {
-            *id_counter += 1;
-            diffs.push(DiffItem {
-                id: id_counter.to_string(),
-                diff_type: DiffType::ForeignKeyAdded,
-                table_name: source.name.clone(),
-                object_name: Some(fk.name.clone()),
-                source_def: Some(format!("-> {}", fk.ref_table)),
-                target_def: None,
-                sql: sql_gen.generate_add_foreign_key(&source.name, fk),
-                selected: true,
-            });
-        } else if let Some(target_fk) = target_fks.get(fk.name.as_str()) {
-            if fk != *target_fk {
-                *id_counter += 1;
-                diffs.push(DiffItem {
-                    id: id_counter.to_string(),
-                    diff_type: DiffType::ForeignKeyModified,
-                    table_name: source.name.clone(),
-                    object_name: Some(fk.name.clone()),
-                    source_def: Some(format!("-> {}", fk.ref_table)),
-                    target_def: Some(format!("-> {}", target_fk.ref_table)),
-                    sql: format!(
-                        "{}\n{}",
-                        sql_gen.generate_drop_foreign_key(&source.name, &fk.name),
-                        sql_gen.generate_add_foreign_key(&source.name, fk)
-                    ),
-                    selected: true,
-                });
-            }
-        }
-    }
-
-    for fk in &target.foreign_keys {
-        if !source_fks.contains_key(fk.name.as_str()) {
-            *id_counter += 1;
-            diffs.push(DiffItem {
-                id: id_counter.to_string(),
-                diff_type: DiffType::ForeignKeyRemoved,
-                table_name: source.name.clone(),
-                object_name: Some(fk.name.clone()),
-                source_def: None,
-                target_def: Some(format!("-> {}", fk.ref_table)),
-                sql: sql_gen.generate_drop_foreign_key(&source.name, &fk.name),
-                selected: true,
-            });
-        }
-    }
+    compare_named_items(
+        &DiffConfig {
+            table_name: &source.name,
+            source_items: &source.foreign_keys,
+            target_items: &target.foreign_keys,
+            added_type: DiffType::ForeignKeyAdded,
+            removed_type: DiffType::ForeignKeyRemoved,
+            modified_type: DiffType::ForeignKeyModified,
+            source_def: |fk| format!("-> {}", fk.ref_table),
+            target_def: |fk| format!("-> {}", fk.ref_table),
+            generate_add: |sg, t, fk| sg.generate_add_foreign_key(t, fk),
+            generate_drop: |sg, t, name| sg.generate_drop_foreign_key(t, name),
+        },
+        sql_gen,
+        id_counter,
+        diffs,
+    );
 
     // Compare unique constraints
-    let source_ucs: HashMap<&str, &UniqueConstraint> = source
-        .unique_constraints
-        .iter()
-        .map(|u| (u.name.as_str(), u))
-        .collect();
-    let target_ucs: HashMap<&str, &UniqueConstraint> = target
-        .unique_constraints
-        .iter()
-        .map(|u| (u.name.as_str(), u))
-        .collect();
-
-    for uc in &source.unique_constraints {
-        if !target_ucs.contains_key(uc.name.as_str()) {
-            *id_counter += 1;
-            diffs.push(DiffItem {
-                id: id_counter.to_string(),
-                diff_type: DiffType::UniqueConstraintAdded,
-                table_name: source.name.clone(),
-                object_name: Some(uc.name.clone()),
-                source_def: Some(uc.columns.join(", ")),
-                target_def: None,
-                sql: sql_gen.generate_add_unique(&source.name, uc),
-                selected: true,
-            });
-        } else if let Some(target_uc) = target_ucs.get(uc.name.as_str()) {
-            if uc != *target_uc {
-                *id_counter += 1;
-                diffs.push(DiffItem {
-                    id: id_counter.to_string(),
-                    diff_type: DiffType::UniqueConstraintModified,
-                    table_name: source.name.clone(),
-                    object_name: Some(uc.name.clone()),
-                    source_def: Some(uc.columns.join(", ")),
-                    target_def: Some(target_uc.columns.join(", ")),
-                    sql: format!(
-                        "{}\n{}",
-                        sql_gen.generate_drop_unique(&source.name, &uc.name),
-                        sql_gen.generate_add_unique(&source.name, uc)
-                    ),
-                    selected: true,
-                });
-            }
-        }
-    }
-
-    for uc in &target.unique_constraints {
-        if !source_ucs.contains_key(uc.name.as_str()) {
-            *id_counter += 1;
-            diffs.push(DiffItem {
-                id: id_counter.to_string(),
-                diff_type: DiffType::UniqueConstraintRemoved,
-                table_name: source.name.clone(),
-                object_name: Some(uc.name.clone()),
-                source_def: None,
-                target_def: Some(uc.columns.join(", ")),
-                sql: sql_gen.generate_drop_unique(&source.name, &uc.name),
-                selected: true,
-            });
-        }
-    }
+    compare_named_items(
+        &DiffConfig {
+            table_name: &source.name,
+            source_items: &source.unique_constraints,
+            target_items: &target.unique_constraints,
+            added_type: DiffType::UniqueConstraintAdded,
+            removed_type: DiffType::UniqueConstraintRemoved,
+            modified_type: DiffType::UniqueConstraintModified,
+            source_def: |uc| uc.columns.join(", "),
+            target_def: |uc| uc.columns.join(", "),
+            generate_add: |sg, t, uc| sg.generate_add_unique(t, uc),
+            generate_drop: |sg, t, name| sg.generate_drop_unique(t, name),
+        },
+        sql_gen,
+        id_counter,
+        diffs,
+    );
 }
