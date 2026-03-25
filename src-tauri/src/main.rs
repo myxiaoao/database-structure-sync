@@ -118,6 +118,33 @@ impl DatabaseDriver {
     }
 }
 
+/// Load a connection by ID from the store, returning a descriptive error if not found.
+async fn load_connection(store: &ConfigStore, id: &str, label: &str) -> Result<Connection, String> {
+    store
+        .get_connection(id)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| {
+            error!("{} not found: {}", label, id);
+            format!("{} not found", label)
+        })
+}
+
+/// Create a DatabaseDriver for a connection, optionally overriding the database name.
+async fn create_driver(
+    conn: &mut Connection,
+    database_override: Option<String>,
+    tunnels: &Arc<Mutex<Vec<SshTunnel>>>,
+) -> Result<DatabaseDriver, String> {
+    if let Some(db) = database_override {
+        conn.database = db;
+    }
+    DatabaseDriver::create(conn, tunnels).await.map_err(|e| {
+        error!("Failed to connect ({}): {}", conn.name, e);
+        e.to_string()
+    })
+}
+
 #[tauri::command]
 async fn list_connections(state: State<'_, AppState>) -> Result<Vec<Connection>, String> {
     info!("Listing all connections");
@@ -221,23 +248,10 @@ async fn list_databases(
     info!("Listing databases for connection: {}", connection_id);
 
     let store = state.config_store.lock().await;
-    let conn = store
-        .get_connection(&connection_id)
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| {
-            error!("Connection not found: {}", connection_id);
-            "Connection not found".to_string()
-        })?;
+    let mut conn = load_connection(&store, &connection_id, "Connection").await?;
     drop(store);
 
-    let driver = DatabaseDriver::create(&conn, &state.active_tunnels)
-        .await
-        .map_err(|e| {
-            error!("Failed to connect: {}", e);
-            e.to_string()
-        })?;
-
+    let driver = create_driver(&mut conn, None, &state.active_tunnels).await?;
     let databases = driver.as_reader().list_databases().await.map_err(|e| {
         error!("Failed to list databases: {}", e);
         e.to_string()
@@ -258,56 +272,23 @@ async fn compare_databases(
     info!("Comparing databases: {} -> {}", source_id, target_id);
 
     let store = state.config_store.lock().await;
-
-    let mut source_conn = store
-        .get_connection(&source_id)
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| {
-            error!("Source connection not found: {}", source_id);
-            "Source connection not found".to_string()
-        })?;
-
-    let mut target_conn = store
-        .get_connection(&target_id)
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| {
-            error!("Target connection not found: {}", target_id);
-            "Target connection not found".to_string()
-        })?;
-
+    let mut source_conn = load_connection(&store, &source_id, "Source connection").await?;
+    let mut target_conn = load_connection(&store, &target_id, "Target connection").await?;
     drop(store);
-
-    // Override database if provided
-    if let Some(db) = source_database {
-        source_conn.database = db;
-    }
-    if let Some(db) = target_database {
-        target_conn.database = db;
-    }
 
     info!(
         "Connecting to source: {} ({})",
         source_conn.name, source_conn.db_type
     );
-    let source_driver = DatabaseDriver::create(&source_conn, &state.active_tunnels)
-        .await
-        .map_err(|e| {
-            error!("Failed to connect to source: {}", e);
-            e.to_string()
-        })?;
+    let source_driver =
+        create_driver(&mut source_conn, source_database, &state.active_tunnels).await?;
 
     info!(
         "Connecting to target: {} ({})",
         target_conn.name, target_conn.db_type
     );
-    let target_driver = DatabaseDriver::create(&target_conn, &state.active_tunnels)
-        .await
-        .map_err(|e| {
-            error!("Failed to connect to target: {}", e);
-            e.to_string()
-        })?;
+    let target_driver =
+        create_driver(&mut target_conn, target_database, &state.active_tunnels).await?;
 
     info!("Fetching source schema...");
     let source_tables = source_driver.as_reader().get_tables().await.map_err(|e| {
@@ -355,27 +336,10 @@ async fn execute_sync(
     );
 
     let store = state.config_store.lock().await;
-    let mut target_conn = store
-        .get_connection(&target_id)
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| {
-            error!("Target connection not found: {}", target_id);
-            "Target connection not found".to_string()
-        })?;
+    let mut target_conn = load_connection(&store, &target_id, "Target connection").await?;
     drop(store);
 
-    // Override database if provided
-    if let Some(db) = target_database {
-        target_conn.database = db;
-    }
-
-    let driver = DatabaseDriver::create(&target_conn, &state.active_tunnels)
-        .await
-        .map_err(|e| {
-            error!("Failed to connect to target: {}", e);
-            e.to_string()
-        })?;
+    let driver = create_driver(&mut target_conn, target_database, &state.active_tunnels).await?;
 
     for (i, sql) in sql_statements.iter().enumerate() {
         info!("Executing statement {}/{}", i + 1, sql_statements.len());
