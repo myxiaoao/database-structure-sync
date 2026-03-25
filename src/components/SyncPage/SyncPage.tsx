@@ -4,18 +4,20 @@ import { toast } from "sonner";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { DiffTree } from "@/components/DiffTree";
+import { ConnectionSelector } from "./ConnectionSelector";
 import { useSync } from "@/hooks";
 import { DB_TYPE_LABELS } from "@/types";
 import type { Connection, DbType } from "@/types";
+
+const MYSQL_FAMILY = new Set<string>(["mysql", "mariadb"]);
+
+function isCrossDbType(source: Connection | undefined, target: Connection | undefined): boolean {
+  if (!source || !target) return false;
+  if (source.db_type === target.db_type) return false;
+  return !(MYSQL_FAMILY.has(source.db_type) && MYSQL_FAMILY.has(target.db_type));
+}
 
 interface SyncPageProps {
   connections: Connection[];
@@ -58,15 +60,8 @@ export function SyncPage({ connections }: SyncPageProps) {
   const sourceConnection = connections.find((c) => c.id === sourceId);
   const targetConnection = connections.find((c) => c.id === targetId);
 
-  const mysqlFamily = new Set<string>(["mysql", "mariadb"]);
-  const isCrossDbType =
-    sourceConnection &&
-    targetConnection &&
-    sourceConnection.db_type !== targetConnection.db_type &&
-    !(mysqlFamily.has(sourceConnection.db_type) && mysqlFamily.has(targetConnection.db_type));
-
   const onCompare = useCallback(() => {
-    if (isCrossDbType) {
+    if (isCrossDbType(sourceConnection, targetConnection)) {
       toast.warning(
         t("sync.crossDbWarning", {
           source:
@@ -80,7 +75,7 @@ export function SyncPage({ connections }: SyncPageProps) {
       return;
     }
     handleCompare();
-  }, [isCrossDbType, sourceConnection, targetConnection, handleCompare, t]);
+  }, [sourceConnection, targetConnection, handleCompare, t]);
 
   const onExportSql = useCallback(async () => {
     try {
@@ -119,74 +114,28 @@ export function SyncPage({ connections }: SyncPageProps) {
     <div className="h-full flex flex-col gap-3">
       {/* Database Selectors - Two column layout matching diff results */}
       <div className="grid grid-cols-2 gap-3 shrink-0">
-        {/* Source Database */}
-        <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg border min-w-0">
-          <label className="text-xs font-medium text-muted-foreground whitespace-nowrap shrink-0">
-            {t("sync.source")}
-          </label>
-          <Select value={sourceId} onValueChange={setSourceId}>
-            <SelectTrigger className="h-8 text-sm min-w-0 flex-1">
-              <SelectValue placeholder={t("sync.selectConnection")} />
-            </SelectTrigger>
-            <SelectContent>
-              {connections.map((conn) => (
-                <SelectItem key={conn.id} value={conn.id}>
-                  {conn.name} ({DB_TYPE_LABELS[conn.db_type as DbType] || conn.db_type})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {sourceNeedsDbSelect && (
-            <Select value={sourceDb} onValueChange={setSourceDb} disabled={loadingSourceDbs}>
-              <SelectTrigger className="h-8 text-sm min-w-0 flex-1">
-                <SelectValue
-                  placeholder={loadingSourceDbs ? t("common.loading") : t("sync.selectDatabase")}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {sourceDatabases.map((db) => (
-                  <SelectItem key={db} value={db}>
-                    {db}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
-
-        {/* Target Database + Compare Button */}
-        <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg border min-w-0">
-          <label className="text-xs font-medium text-muted-foreground whitespace-nowrap shrink-0">
-            {t("sync.target")}
-          </label>
-          <Select value={targetId} onValueChange={setTargetId}>
-            <SelectTrigger className="h-8 text-sm min-w-0 flex-1">
-              <SelectValue placeholder={t("sync.selectConnection")} />
-            </SelectTrigger>
-            <SelectContent>
-              {connections.map((conn) => (
-                <SelectItem key={conn.id} value={conn.id}>
-                  {conn.name} ({DB_TYPE_LABELS[conn.db_type as DbType] || conn.db_type})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {targetNeedsDbSelect && (
-            <Select value={targetDb} onValueChange={setTargetDb} disabled={loadingTargetDbs}>
-              <SelectTrigger className="h-8 text-sm min-w-0 flex-1">
-                <SelectValue
-                  placeholder={loadingTargetDbs ? t("common.loading") : t("sync.selectDatabase")}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {targetDatabases.map((db) => (
-                  <SelectItem key={db} value={db}>
-                    {db}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+        <ConnectionSelector
+          label={t("sync.source")}
+          connections={connections}
+          connectionId={sourceId}
+          onConnectionChange={setSourceId}
+          needsDbSelect={sourceNeedsDbSelect}
+          databases={sourceDatabases}
+          loadingDbs={loadingSourceDbs}
+          selectedDb={sourceDb}
+          onDbChange={setSourceDb}
+        />
+        <ConnectionSelector
+          label={t("sync.target")}
+          connections={connections}
+          connectionId={targetId}
+          onConnectionChange={setTargetId}
+          needsDbSelect={targetNeedsDbSelect}
+          databases={targetDatabases}
+          loadingDbs={loadingTargetDbs}
+          selectedDb={targetDb}
+          onDbChange={setTargetDb}
+        >
           <Button
             onClick={onCompare}
             disabled={!canCompare || isComparing}
@@ -195,7 +144,7 @@ export function SyncPage({ connections }: SyncPageProps) {
           >
             {isComparing ? t("common.loading") : t("sync.compare")}
           </Button>
-        </div>
+        </ConnectionSelector>
       </div>
 
       {/* Diff Results */}

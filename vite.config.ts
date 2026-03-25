@@ -21,7 +21,6 @@ export default defineConfig(async () => ({
     rollupOptions: {
       output: {
         manualChunks: {
-          "react-vendor": ["react", "react-dom"],
           "ui-vendor": [
             "@radix-ui/react-checkbox",
             "@radix-ui/react-dialog",

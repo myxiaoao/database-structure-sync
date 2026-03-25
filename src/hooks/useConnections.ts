@@ -73,7 +73,7 @@ export function useConnections() {
     saveConnection,
     deleteConnection,
     testConnection,
-    isSaving: saveMutation.isPending,
+    isSaving: saveMutation.isPending || updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
     isTesting: testMutation.isPending,
   };
