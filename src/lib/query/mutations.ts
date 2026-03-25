@@ -25,6 +25,22 @@ export function useSaveConnectionMutation() {
   });
 }
 
+export function useUpdateConnectionMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: ConnectionInput }) =>
+      connectionsApi.update(id, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: connectionKeys.list() });
+      toast.success("Connection saved successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to save connection: ${getErrorMessage(error)}`);
+    },
+  });
+}
+
 export function useDeleteConnectionMutation() {
   const queryClient = useQueryClient();
 

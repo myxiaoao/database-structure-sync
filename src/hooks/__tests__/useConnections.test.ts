@@ -320,7 +320,7 @@ describe("useConnections", () => {
     expect(result.current.editingConnection).toBe(null);
   });
 
-  it("should call save_connection with id for update path", async () => {
+  it("should call update_connection with id for update path", async () => {
     const updateInput: ConnectionInput = {
       id: "test-id-1",
       name: "Updated Connection",
@@ -334,7 +334,7 @@ describe("useConnections", () => {
 
     mockInvoke
       .mockResolvedValueOnce([]) // Initial list
-      .mockResolvedValueOnce({ ...updateInput, id: "test-id-1" }) // Save (update)
+      .mockResolvedValueOnce({ ...updateInput, id: "test-id-1" }) // Update
       .mockResolvedValueOnce([{ ...updateInput, id: "test-id-1" }]); // Refetch
 
     const { result } = renderHook(() => useConnections(), {
@@ -349,7 +349,10 @@ describe("useConnections", () => {
       await result.current.saveConnection(updateInput);
     });
 
-    expect(mockInvoke).toHaveBeenCalledWith("save_connection", { input: updateInput });
+    expect(mockInvoke).toHaveBeenCalledWith("update_connection", {
+      id: "test-id-1",
+      input: updateInput,
+    });
     expect(result.current.isFormOpen).toBe(false);
   });
 

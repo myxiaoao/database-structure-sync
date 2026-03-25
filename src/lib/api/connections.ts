@@ -14,6 +14,10 @@ export const connectionsApi = {
     return invoke<Connection>("save_connection", { input });
   },
 
+  async update(id: string, input: ConnectionInput): Promise<Connection> {
+    return invoke<Connection>("update_connection", { id, input });
+  },
+
   async delete(id: string): Promise<void> {
     return invoke<void>("delete_connection", { id });
   },

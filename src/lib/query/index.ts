@@ -7,6 +7,7 @@ export {
 } from "./queries";
 export {
   useSaveConnectionMutation,
+  useUpdateConnectionMutation,
   useDeleteConnectionMutation,
   useTestConnectionMutation,
   useCompareMutation,

@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import {
   useConnectionsQuery,
   useSaveConnectionMutation,
+  useUpdateConnectionMutation,
   useDeleteConnectionMutation,
   useTestConnectionMutation,
 } from "@/lib/query";
@@ -14,6 +15,7 @@ export function useConnections() {
   const { data: connections = [], isLoading, error, refetch } = useConnectionsQuery();
 
   const saveMutation = useSaveConnectionMutation();
+  const updateMutation = useUpdateConnectionMutation();
   const deleteMutation = useDeleteConnectionMutation();
   const testMutation = useTestConnectionMutation();
 
@@ -34,10 +36,14 @@ export function useConnections() {
 
   const saveConnection = useCallback(
     async (input: ConnectionInput) => {
-      await saveMutation.mutateAsync(input);
+      if (editingConnection) {
+        await updateMutation.mutateAsync({ id: editingConnection.id, input });
+      } else {
+        await saveMutation.mutateAsync(input);
+      }
       closeForm();
     },
-    [saveMutation, closeForm]
+    [editingConnection, saveMutation, updateMutation, closeForm]
   );
 
   const deleteConnection = useCallback(
