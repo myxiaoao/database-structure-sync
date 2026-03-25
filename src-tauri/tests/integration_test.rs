@@ -325,14 +325,8 @@ fn test_detect_modified_column_type() {
     assert!(column_modified.is_some());
 
     let diff = column_modified.unwrap();
-    assert_eq!(
-        diff.source_def,
-        Some("VARCHAR(255) NOT NULL".to_string())
-    );
-    assert_eq!(
-        diff.target_def,
-        Some("VARCHAR(100) NOT NULL".to_string())
-    );
+    assert_eq!(diff.source_def, Some("VARCHAR(255) NOT NULL".to_string()));
+    assert_eq!(diff.target_def, Some("VARCHAR(100) NOT NULL".to_string()));
 }
 
 #[test]
@@ -1098,6 +1092,7 @@ fn test_connection_deserialize_default_password() {
 #[test]
 fn test_connection_input_serialize_deserialize() {
     let input = ConnectionInput {
+        id: None,
         name: "Dev DB".to_string(),
         db_type: DbType::MariaDB,
         host: "db.example.com".to_string(),

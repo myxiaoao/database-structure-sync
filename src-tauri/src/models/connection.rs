@@ -77,6 +77,8 @@ pub struct Connection {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConnectionInput {
+    #[serde(default)]
+    pub id: Option<String>,
     pub name: String,
     pub db_type: DbType,
     pub host: String,

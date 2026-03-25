@@ -155,6 +155,20 @@ async fn save_connection(
 }
 
 #[tauri::command]
+async fn update_connection(
+    state: State<'_, AppState>,
+    id: String,
+    input: ConnectionInput,
+) -> Result<Connection, String> {
+    info!("Updating connection: {} ({})", id, input.name);
+    let store = state.config_store.lock().await;
+    store.update_connection(&id, input).await.map_err(|e| {
+        error!("Failed to update connection {}: {}", id, e);
+        e.to_string()
+    })
+}
+
+#[tauri::command]
 async fn delete_connection(state: State<'_, AppState>, id: String) -> Result<(), String> {
     info!("Deleting connection: {}", id);
     let store = state.config_store.lock().await;
@@ -444,6 +458,7 @@ fn main() {
             list_connections,
             get_connection,
             save_connection,
+            update_connection,
             delete_connection,
             test_connection,
             list_databases,

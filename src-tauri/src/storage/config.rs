@@ -98,33 +98,48 @@ impl ConfigStore {
         }))
     }
 
-    pub async fn save_connection(&self, input: ConnectionInput) -> Result<Connection> {
-        let id = uuid::Uuid::new_v4().to_string();
-        let now = chrono::Utc::now().to_rfc3339();
+    fn store_connection_passwords(id: &str, input: &ConnectionInput) -> Result<()> {
+        // Store SSH passwords first (matching original order for atomicity)
+        if let Some(ssh) = &input.ssh_config {
+            if ssh.enabled {
+                match &ssh.auth_method {
+                    SshAuthMethod::Password { password } => {
+                        crypto::store_password(&format!("{}_ssh", id), password)?;
+                    }
+                    SshAuthMethod::PrivateKey { passphrase, .. } => {
+                        if let Some(pp) = passphrase {
+                            crypto::store_password(&format!("{}_ssh_passphrase", id), pp)?;
+                        }
+                    }
+                }
+            }
+        }
+        // Then main password
+        crypto::store_password(id, &input.password)?;
+        Ok(())
+    }
 
+    fn delete_connection_passwords(id: &str) {
+        let _ = crypto::delete_password(id);
+        let _ = crypto::delete_password(&format!("{}_ssh", id));
+        let _ = crypto::delete_password(&format!("{}_ssh_passphrase", id));
+    }
+
+    fn flatten_input(input: &ConnectionInput) -> FlatConnectionFields {
         let db_type_str = match input.db_type {
-            DbType::MySQL => "mysql",
-            DbType::PostgreSQL => "postgresql",
-            DbType::MariaDB => "mariadb",
+            DbType::MySQL => "mysql".to_string(),
+            DbType::PostgreSQL => "postgresql".to_string(),
+            DbType::MariaDB => "mariadb".to_string(),
         };
 
         let (ssh_enabled, ssh_host, ssh_port, ssh_username, ssh_auth_method, ssh_private_key_path) =
             match &input.ssh_config {
                 Some(ssh) if ssh.enabled => {
                     let (method, key_path) = match &ssh.auth_method {
-                        SshAuthMethod::Password { password } => {
-                            crypto::store_password(&format!("{}_ssh", id), password)?;
-                            ("password".to_string(), None)
-                        }
+                        SshAuthMethod::Password { .. } => ("password".to_string(), None),
                         SshAuthMethod::PrivateKey {
-                            private_key_path,
-                            passphrase,
-                        } => {
-                            if let Some(pp) = passphrase {
-                                crypto::store_password(&format!("{}_ssh_passphrase", id), pp)?;
-                            }
-                            ("privatekey".to_string(), Some(private_key_path.clone()))
-                        }
+                            private_key_path, ..
+                        } => ("privatekey".to_string(), Some(private_key_path.clone())),
                     };
                     (
                         1,
@@ -149,7 +164,28 @@ impl ConfigStore {
             _ => (0, None, None, None, 1),
         };
 
-        crypto::store_password(&id, &input.password)?;
+        FlatConnectionFields {
+            db_type_str,
+            ssh_enabled,
+            ssh_host,
+            ssh_port,
+            ssh_username,
+            ssh_auth_method,
+            ssh_private_key_path,
+            ssl_enabled,
+            ssl_ca,
+            ssl_cert,
+            ssl_key,
+            ssl_verify,
+        }
+    }
+
+    pub async fn save_connection(&self, input: ConnectionInput) -> Result<Connection> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        let f = Self::flatten_input(&input);
+
+        Self::store_connection_passwords(&id, &input)?;
 
         sqlx::query(
             r#"
@@ -163,22 +199,22 @@ impl ConfigStore {
         )
         .bind(&id)
         .bind(&input.name)
-        .bind(db_type_str)
+        .bind(&f.db_type_str)
         .bind(&input.host)
         .bind(input.port as i32)
         .bind(&input.username)
         .bind(&input.database)
-        .bind(ssh_enabled)
-        .bind(&ssh_host)
-        .bind(ssh_port)
-        .bind(&ssh_username)
-        .bind(&ssh_auth_method)
-        .bind(&ssh_private_key_path)
-        .bind(ssl_enabled)
-        .bind(&ssl_ca)
-        .bind(&ssl_cert)
-        .bind(&ssl_key)
-        .bind(ssl_verify)
+        .bind(f.ssh_enabled)
+        .bind(&f.ssh_host)
+        .bind(f.ssh_port)
+        .bind(&f.ssh_username)
+        .bind(&f.ssh_auth_method)
+        .bind(&f.ssh_private_key_path)
+        .bind(f.ssl_enabled)
+        .bind(&f.ssl_ca)
+        .bind(&f.ssl_cert)
+        .bind(&f.ssl_key)
+        .bind(f.ssl_verify)
         .bind(&now)
         .bind(&now)
         .execute(&self.pool)
@@ -200,10 +236,45 @@ impl ConfigStore {
         })
     }
 
+    pub async fn update_connection(&self, id: &str, input: ConnectionInput) -> Result<Connection> {
+        let now = chrono::Utc::now().to_rfc3339();
+        let f = Self::flatten_input(&input);
+
+        Self::delete_connection_passwords(id);
+        Self::store_connection_passwords(id, &input)?;
+
+        let rows_affected = sqlx::query(
+            r#"UPDATE connections SET
+                name = ?, db_type = ?, host = ?, port = ?, username = ?, database_name = ?,
+                ssh_enabled = ?, ssh_host = ?, ssh_port = ?, ssh_username = ?, ssh_auth_method = ?, ssh_private_key_path = ?,
+                ssl_enabled = ?, ssl_ca_cert_path = ?, ssl_client_cert_path = ?, ssl_client_key_path = ?, ssl_verify_server = ?,
+                updated_at = ?
+            WHERE id = ?"#,
+        )
+        .bind(&input.name).bind(&f.db_type_str).bind(&input.host)
+        .bind(input.port as i32).bind(&input.username).bind(&input.database)
+        .bind(f.ssh_enabled).bind(&f.ssh_host).bind(f.ssh_port).bind(&f.ssh_username)
+        .bind(&f.ssh_auth_method).bind(&f.ssh_private_key_path)
+        .bind(f.ssl_enabled).bind(&f.ssl_ca).bind(&f.ssl_cert).bind(&f.ssl_key).bind(f.ssl_verify)
+        .bind(&now).bind(id)
+        .execute(&self.pool)
+        .await?
+        .rows_affected();
+
+        if rows_affected == 0 {
+            anyhow::bail!("Connection not found: {}", id);
+        }
+
+        let conn = self
+            .get_connection(id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Connection not found after update: {}", id))?;
+
+        Ok(conn)
+    }
+
     pub async fn delete_connection(&self, id: &str) -> Result<()> {
-        let _ = crypto::delete_password(id);
-        let _ = crypto::delete_password(&format!("{}_ssh", id));
-        let _ = crypto::delete_password(&format!("{}_ssh_passphrase", id));
+        Self::delete_connection_passwords(id);
 
         sqlx::query("DELETE FROM connections WHERE id = ?")
             .bind(id)
@@ -212,6 +283,21 @@ impl ConfigStore {
 
         Ok(())
     }
+}
+
+struct FlatConnectionFields {
+    db_type_str: String,
+    ssh_enabled: i32,
+    ssh_host: Option<String>,
+    ssh_port: Option<i32>,
+    ssh_username: Option<String>,
+    ssh_auth_method: Option<String>,
+    ssh_private_key_path: Option<String>,
+    ssl_enabled: i32,
+    ssl_ca: Option<String>,
+    ssl_cert: Option<String>,
+    ssl_key: Option<String>,
+    ssl_verify: i32,
 }
 
 #[derive(sqlx::FromRow)]
