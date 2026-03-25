@@ -1,11 +1,20 @@
 import { save } from "@tauri-apps/plugin-dialog";
 import { syncApi } from "@/lib/api/sync";
 
-export async function exportSqlFile(sqlContent: string): Promise<boolean> {
+export interface ExportSqlOptions {
+  defaultPath?: string;
+}
+
+export async function exportSqlFile(
+  sqlContent: string,
+  options: ExportSqlOptions = {}
+): Promise<boolean> {
   if (!sqlContent) return false;
 
+  const { defaultPath = "sync.sql" } = options;
+
   const filePath = await save({
-    defaultPath: "sync.sql",
+    defaultPath,
     filters: [{ name: "SQL", extensions: ["sql"] }],
   });
 

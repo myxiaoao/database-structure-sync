@@ -28,5 +28,7 @@ export function useDatabasesQuery(connectionId: string | null, enabled = true) {
     queryKey: connectionKeys.databases(connectionId ?? ""),
     queryFn: () => (connectionId ? connectionsApi.listDatabases(connectionId) : []),
     enabled: !!connectionId && enabled,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
