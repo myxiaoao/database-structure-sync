@@ -157,11 +157,11 @@ export function SyncPage({ connections }: SyncPageProps) {
           >
             {/* Left: Diff Tree (40%) */}
             <div className="flex flex-col border-r overflow-hidden">
-              <div className="flex items-center px-5 h-10 border-b bg-muted/30 shrink-0 gap-2">
-                <span className="text-xs font-semibold">
+              <div className="flex items-center px-3 h-10 border-b bg-muted/30 shrink-0 gap-3">
+                <span className="text-xs font-semibold whitespace-nowrap">
                   {diffResult.items.length} {t("sync.changes")}
                 </span>
-                <Separator orientation="vertical" className="h-4" />
+                <Separator orientation="vertical" className="h-4 shrink-0" />
                 <div className="flex gap-0.5 ml-auto">
                   <Button
                     variant="ghost"
@@ -218,7 +218,7 @@ export function SyncPage({ connections }: SyncPageProps) {
 
             {/* Right: SQL Preview (60%) */}
             <div className="flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between px-5 h-10 border-b bg-muted/30 shrink-0">
+              <div className="flex items-center justify-between px-3 h-10 border-b bg-muted/30 shrink-0">
                 <span className="text-xs font-semibold">{t("sql.preview")}</span>
               </div>
               <div className="flex-1 overflow-auto min-h-0">
