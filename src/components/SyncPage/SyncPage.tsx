@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Download, ArrowRight, Play, DatabaseZap } from "lucide-react";
+import { Download, Play, DatabaseZap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { DiffTree } from "@/components/DiffTree";
@@ -110,40 +110,46 @@ export function SyncPage({ connections }: SyncPageProps) {
     <div className="h-full flex flex-col">
       {/* Step 1: Endpoint Selection */}
       <div className="shrink-0 p-4 pb-3">
-        <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-stretch">
-          <ConnectionSelector
-            label={t("sync.source")}
-            connections={connections}
-            connectionId={sourceId}
-            onConnectionChange={setSourceId}
-            needsDbSelect={sourceNeedsDbSelect}
-            databases={sourceDatabases}
-            loadingDbs={loadingSourceDbs}
-            selectedDb={sourceDb}
-            onDbChange={setSourceDb}
-          />
-          <div className="flex flex-col items-center justify-center gap-2">
-            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+        <div className="border rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold">{t("app.subtitle")}</h2>
+            <span className="text-[11px] text-muted-foreground">{t("sync.endpointHint")}</span>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">{t("sync.endpointDesc")}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <ConnectionSelector
+              label={t("sync.source")}
+              connections={connections}
+              connectionId={sourceId}
+              onConnectionChange={setSourceId}
+              needsDbSelect={sourceNeedsDbSelect}
+              databases={sourceDatabases}
+              loadingDbs={loadingSourceDbs}
+              selectedDb={sourceDb}
+              onDbChange={setSourceDb}
+            />
+            <ConnectionSelector
+              label={t("sync.target")}
+              connections={connections}
+              connectionId={targetId}
+              onConnectionChange={setTargetId}
+              needsDbSelect={targetNeedsDbSelect}
+              databases={targetDatabases}
+              loadingDbs={loadingTargetDbs}
+              selectedDb={targetDb}
+              onDbChange={setTargetDb}
+            />
+          </div>
+          <div className="flex justify-center mt-3">
             <Button
               onClick={onCompare}
               disabled={!canCompare || isComparing}
               size="sm"
-              className="h-8 px-4"
+              className="h-8 px-6"
             >
               {isComparing ? t("common.loading") : t("sync.compare")}
             </Button>
           </div>
-          <ConnectionSelector
-            label={t("sync.target")}
-            connections={connections}
-            connectionId={targetId}
-            onConnectionChange={setTargetId}
-            needsDbSelect={targetNeedsDbSelect}
-            databases={targetDatabases}
-            loadingDbs={loadingTargetDbs}
-            selectedDb={targetDb}
-            onDbChange={setTargetDb}
-          />
         </div>
       </div>
 

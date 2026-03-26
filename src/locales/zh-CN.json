@@ -1,7 +1,8 @@
 {
   "app": {
     "title": "数据库结构同步",
-    "headerDesc": "比较和同步数据库表结构"
+    "headerDesc": "比较和同步数据库表结构",
+    "subtitle": "选择比对端点"
   },
   "connection": {
     "title": "连接管理",
@@ -80,6 +81,8 @@
     "collapseAll": "收起全部",
     "noChanges": "未发现结构差异",
     "changes": "项差异",
+    "endpointHint": "源结构 → 目标结构",
+    "endpointDesc": "选择源数据库和目标数据库后，开始比较表结构差异",
     "emptyTitle": "准备就绪",
     "emptyDesc": "在上方选择源数据库和目标数据库，然后点击「开始比较」检测结构差异。",
     "selectedCount": "已选择 {{count}} 项变更",

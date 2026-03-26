@@ -40,7 +40,7 @@ export function MainLayout({
               <div>
                 <h1 className="font-semibold text-base leading-tight">{t("app.title")}</h1>
                 <p className="text-[11px] text-muted-foreground leading-tight">
-                  {t("sync.headerDesc")}
+                  {t("app.headerDesc")}
                 </p>
               </div>
             </div>

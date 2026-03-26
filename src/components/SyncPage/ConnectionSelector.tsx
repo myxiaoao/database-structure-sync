@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -35,40 +34,49 @@ export function ConnectionSelector({
   onDbChange,
 }: ConnectionSelectorProps) {
   const { t } = useTranslation();
+  const selectedConn = connections.find((c) => c.id === connectionId);
 
   return (
-    <Card className="p-3.5 flex flex-col gap-2.5">
+    <div className="border rounded-lg p-3 flex flex-col gap-2">
       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
         {label}
       </Label>
-      <Select value={connectionId} onValueChange={onConnectionChange}>
-        <SelectTrigger className="h-9 text-sm">
-          <SelectValue placeholder={t("sync.selectConnection")} />
-        </SelectTrigger>
-        <SelectContent>
-          {connections.map((conn) => (
-            <SelectItem key={conn.id} value={conn.id}>
-              {conn.name} ({DB_TYPE_LABELS[conn.db_type as DbType] || conn.db_type})
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {needsDbSelect && (
-        <Select value={selectedDb} onValueChange={onDbChange} disabled={loadingDbs}>
+      <div className="space-y-2">
+        <Select value={connectionId} onValueChange={onConnectionChange}>
           <SelectTrigger className="h-9 text-sm">
-            <SelectValue
-              placeholder={loadingDbs ? t("common.loading") : t("sync.selectDatabase")}
-            />
+            <SelectValue placeholder={t("sync.selectConnection")} />
           </SelectTrigger>
           <SelectContent>
-            {databases.map((db) => (
-              <SelectItem key={db} value={db}>
-                {db}
+            {connections.map((conn) => (
+              <SelectItem key={conn.id} value={conn.id}>
+                {conn.name} ({DB_TYPE_LABELS[conn.db_type as DbType] || conn.db_type})
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        {needsDbSelect && (
+          <Select value={selectedDb} onValueChange={onDbChange} disabled={loadingDbs}>
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue
+                placeholder={loadingDbs ? t("common.loading") : t("sync.selectDatabase")}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {databases.map((db) => (
+                <SelectItem key={db} value={db}>
+                  {db}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+      {selectedConn && (
+        <div className="text-[11px] text-muted-foreground">
+          {DB_TYPE_LABELS[selectedConn.db_type as DbType] || selectedConn.db_type} ·{" "}
+          {selectedConn.host}:{selectedConn.port}
+        </div>
       )}
-    </Card>
+    </div>
   );
 }

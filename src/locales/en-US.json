@@ -1,7 +1,8 @@
 {
   "app": {
     "title": "Database Structure Sync",
-    "headerDesc": "Compare and synchronize database schemas"
+    "headerDesc": "Compare and synchronize database schemas",
+    "subtitle": "Select endpoints"
   },
   "connection": {
     "title": "Connections",
@@ -80,6 +81,8 @@
     "collapseAll": "Collapse All",
     "noChanges": "No structural differences found",
     "changes": "differences",
+    "endpointHint": "Source schema → Target schema",
+    "endpointDesc": "Select source and target databases, then compare structural differences",
     "emptyTitle": "Ready to compare",
     "emptyDesc": "Select a source and target database above, then click Compare to detect structural differences.",
     "selectedCount": "{{count}} changes selected",
