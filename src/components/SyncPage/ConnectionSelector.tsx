@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -37,13 +36,13 @@ export function ConnectionSelector({
   const selectedConn = connections.find((c) => c.id === connectionId);
 
   return (
-    <div className="border rounded-lg p-3 flex flex-col gap-2">
-      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+    <div className="flex-1 min-w-0 border rounded-md px-2.5 py-2">
+      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
         {label}
-      </Label>
-      <div className="space-y-2">
+      </div>
+      <div className="flex items-center gap-2">
         <Select value={connectionId} onValueChange={onConnectionChange}>
-          <SelectTrigger className="h-9 text-sm">
+          <SelectTrigger className="h-8 text-sm min-w-0 flex-1">
             <SelectValue placeholder={t("sync.selectConnection")} />
           </SelectTrigger>
           <SelectContent>
@@ -56,7 +55,7 @@ export function ConnectionSelector({
         </Select>
         {needsDbSelect && (
           <Select value={selectedDb} onValueChange={onDbChange} disabled={loadingDbs}>
-            <SelectTrigger className="h-9 text-sm">
+            <SelectTrigger className="h-8 text-sm min-w-0 flex-1">
               <SelectValue
                 placeholder={loadingDbs ? t("common.loading") : t("sync.selectDatabase")}
               />
@@ -72,7 +71,7 @@ export function ConnectionSelector({
         )}
       </div>
       {selectedConn && (
-        <div className="text-[11px] text-muted-foreground">
+        <div className="text-[10px] text-muted-foreground mt-1">
           {DB_TYPE_LABELS[selectedConn.db_type as DbType] || selectedConn.db_type} ·{" "}
           {selectedConn.host}:{selectedConn.port}
         </div>

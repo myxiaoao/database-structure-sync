@@ -108,15 +108,16 @@ export function SyncPage({ connections }: SyncPageProps) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Step 1: Endpoint Selection */}
-      <div className="shrink-0 p-4 pb-3">
-        <div className="border rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold">{t("app.subtitle")}</h2>
-            <span className="text-[11px] text-muted-foreground">{t("sync.endpointHint")}</span>
+      {/* Endpoint Selection */}
+      <div className="shrink-0 px-4 pt-3 pb-2">
+        <div className="border rounded-lg px-3 py-2.5">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-baseline gap-2">
+              <h2 className="text-xs font-semibold">{t("app.subtitle")}</h2>
+              <span className="text-[10px] text-muted-foreground">{t("sync.endpointHint")}</span>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground mb-3">{t("sync.endpointDesc")}</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex items-start gap-3">
             <ConnectionSelector
               label={t("sync.source")}
               connections={connections}
@@ -139,13 +140,11 @@ export function SyncPage({ connections }: SyncPageProps) {
               selectedDb={targetDb}
               onDbChange={setTargetDb}
             />
-          </div>
-          <div className="flex justify-center mt-3">
             <Button
               onClick={onCompare}
               disabled={!canCompare || isComparing}
               size="sm"
-              className="h-8 px-6"
+              className="h-8 px-5 shrink-0 mt-4"
             >
               {isComparing ? t("common.loading") : t("sync.compare")}
             </Button>
