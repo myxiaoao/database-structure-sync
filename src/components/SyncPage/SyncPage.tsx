@@ -110,8 +110,8 @@ export function SyncPage({ connections }: SyncPageProps) {
     <div className="h-full flex flex-col">
       {/* Endpoint Selection */}
       <div className="shrink-0 px-4 pt-3 pb-2">
-        <div className="border border-border/50 rounded-xl px-3.5 py-3">
-          <h2 className="text-[13px] font-semibold mb-2">{t("app.subtitle")}</h2>
+        <div className="px-0.5">
+          <h2 className="text-[13px] font-semibold mb-1.5">{t("app.subtitle")}</h2>
           <div className="flex items-stretch gap-2.5">
             <ConnectionSelector
               label={t("sync.source")}
