@@ -109,7 +109,7 @@ export function SyncPage({ connections }: SyncPageProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Endpoint Selection */}
-      <div className="shrink-0 px-4 pt-3 pb-2">
+      <div className="shrink-0 px-5 pt-3 pb-2">
         <div className="px-0.5">
           <h2 className="text-[13px] font-semibold mb-1.5">{t("app.subtitle")}</h2>
           <div className="flex items-stretch gap-2.5">
@@ -157,7 +157,7 @@ export function SyncPage({ connections }: SyncPageProps) {
           >
             {/* Left: Diff Tree (40%) */}
             <div className="flex flex-col border-r overflow-hidden">
-              <div className="flex items-center px-3 h-10 border-b bg-muted/30 shrink-0 gap-2">
+              <div className="flex items-center px-5 h-10 border-b bg-muted/30 shrink-0 gap-2">
                 <span className="text-xs font-semibold">
                   {diffResult.items.length} {t("sync.changes")}
                 </span>
@@ -218,7 +218,7 @@ export function SyncPage({ connections }: SyncPageProps) {
 
             {/* Right: SQL Preview (60%) */}
             <div className="flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between px-3 h-10 border-b bg-muted/30 shrink-0">
+              <div className="flex items-center justify-between px-5 h-10 border-b bg-muted/30 shrink-0">
                 <span className="text-xs font-semibold">{t("sql.preview")}</span>
               </div>
               <div className="flex-1 overflow-auto min-h-0">
@@ -237,7 +237,7 @@ export function SyncPage({ connections }: SyncPageProps) {
           </div>
 
           {/* Bottom Action Bar */}
-          <div className="shrink-0 border-t bg-muted/20 px-4 py-2.5 flex items-center justify-between">
+          <div className="shrink-0 border-t bg-muted/20 px-5 py-2.5 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">
               {selectedCount > 0
                 ? t("sync.selectedCount", { count: selectedCount })
