@@ -139,7 +139,7 @@ export function SyncPage({ connections }: SyncPageProps) {
               onClick={onCompare}
               disabled={!canCompare || isComparing}
               variant="outline"
-              className="shrink-0 h-auto w-[120px] text-sm font-medium"
+              className="shrink-0 h-auto w-[120px] text-sm font-medium border-foreground/20 hover:border-foreground/40"
             >
               {isComparing ? t("common.loading") : t("sync.compare")}
             </Button>
@@ -167,7 +167,7 @@ export function SyncPage({ connections }: SyncPageProps) {
                     variant="ghost"
                     size="sm"
                     onClick={handleExpandAll}
-                    className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                    className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
                   >
                     {t("sync.expandAll")}
                   </Button>
@@ -175,7 +175,7 @@ export function SyncPage({ connections }: SyncPageProps) {
                     variant="ghost"
                     size="sm"
                     onClick={handleCollapseAll}
-                    className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                    className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
                   >
                     {t("sync.collapseAll")}
                   </Button>
@@ -184,7 +184,7 @@ export function SyncPage({ connections }: SyncPageProps) {
                     variant="ghost"
                     size="sm"
                     onClick={handleSelectAll}
-                    className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                    className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
                   >
                     {t("sync.selectAll")}
                   </Button>
@@ -192,7 +192,7 @@ export function SyncPage({ connections }: SyncPageProps) {
                     variant="ghost"
                     size="sm"
                     onClick={handleDeselectAll}
-                    className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                    className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
                   >
                     {t("sync.deselectAll")}
                   </Button>
@@ -227,9 +227,9 @@ export function SyncPage({ connections }: SyncPageProps) {
                     {selectedSql}
                   </pre>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground/40">
-                    <FileCode className="h-8 w-8" />
-                    <span className="text-xs text-muted-foreground/60">{t("sql.empty")}</span>
+                  <div className="flex flex-col items-center justify-center h-full gap-1.5 text-muted-foreground/40">
+                    <FileCode className="h-7 w-7" />
+                    <span className="text-xs text-muted-foreground/50">{t("sql.empty")}</span>
                   </div>
                 )}
               </div>
