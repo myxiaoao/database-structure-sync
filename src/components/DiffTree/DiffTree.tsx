@@ -92,7 +92,7 @@ function DiffItemRow({
 
   return (
     <div
-      className="flex items-center gap-2 py-[5px] pl-2 pr-2.5 rounded cursor-pointer hover:bg-muted/80 text-xs"
+      className="flex items-center gap-2 py-[5px] pl-2 pr-2.5 rounded-md cursor-pointer hover:bg-muted/80 text-xs"
       onClick={onClick}
     >
       <Checkbox
@@ -106,7 +106,9 @@ function DiffItemRow({
       />
       {getDiffIcon(item.diff_type)}
       <span className="flex-1 truncate font-medium">{item.object_name || item.table_name}</span>
-      <span className={`text-[10px] px-2 py-0.5 rounded font-medium shrink-0 ${badge.className}`}>
+      <span
+        className={`text-[10px] px-2 py-0.5 rounded-md font-medium shrink-0 ${badge.className}`}
+      >
         {badge.label}
       </span>
     </div>

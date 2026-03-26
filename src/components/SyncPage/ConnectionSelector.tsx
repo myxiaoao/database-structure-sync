@@ -69,7 +69,7 @@ export function ConnectionSelector({
         )}
       </div>
       {selectedConn && (
-        <div className="text-[10px] text-muted-foreground/70 mt-1">
+        <div className="text-[10px] text-muted-foreground/70 mt-1 truncate">
           {DB_TYPE_LABELS[selectedConn.db_type as DbType] || selectedConn.db_type} ·{" "}
           {selectedConn.host}:{selectedConn.port}
         </div>

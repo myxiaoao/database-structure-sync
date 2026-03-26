@@ -246,7 +246,7 @@ export function SyncPage({ connections }: SyncPageProps) {
                 size="sm"
                 onClick={onExportSql}
                 disabled={!selectedSql || isExporting}
-                className="h-7 text-xs"
+                className="h-7 text-xs disabled:border-border"
               >
                 <Download className="h-3 w-3 mr-1" />
                 {t("sql.export")}
