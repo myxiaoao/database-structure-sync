@@ -139,7 +139,7 @@ export function SyncPage({ connections }: SyncPageProps) {
               onClick={onCompare}
               disabled={!canCompare || isComparing}
               variant="outline"
-              className="shrink-0 h-auto w-[120px] text-sm font-medium border-foreground/20 hover:border-foreground/40"
+              className="shrink-0 h-auto w-[100px] text-sm font-medium border-foreground/20 hover:border-foreground/40"
             >
               {isComparing ? t("common.loading") : t("sync.compare")}
             </Button>
@@ -147,27 +147,24 @@ export function SyncPage({ connections }: SyncPageProps) {
         </div>
       </div>
 
-      <Separator />
-
-      {/* Step 2: Results */}
+      {/* Results */}
       {diffResult ? (
         <>
           <div
-            className={`flex-1 grid grid-cols-[2fr_3fr] gap-0 min-h-0 overflow-hidden transition-opacity duration-150 ${isComparing ? "opacity-40 pointer-events-none" : ""}`}
+            className={`flex-1 grid grid-cols-[2fr_3fr] gap-0 min-h-0 overflow-hidden border-t transition-opacity duration-150 ${isComparing ? "opacity-40 pointer-events-none" : ""}`}
           >
             {/* Left: Diff Tree (40%) */}
             <div className="flex flex-col border-r overflow-hidden">
-              <div className="flex items-center px-3 h-10 border-b bg-muted/30 shrink-0 gap-3">
+              <div className="flex items-center px-3 h-9 border-b bg-muted/20 shrink-0">
                 <span className="text-xs font-semibold whitespace-nowrap">
                   {diffResult.items.length} {t("sync.changes")}
                 </span>
-                <Separator orientation="vertical" className="h-4 shrink-0" />
                 <div className="flex gap-0.5 ml-auto">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleExpandAll}
-                    className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
                   >
                     {t("sync.expandAll")}
                   </Button>
@@ -175,16 +172,16 @@ export function SyncPage({ connections }: SyncPageProps) {
                     variant="ghost"
                     size="sm"
                     onClick={handleCollapseAll}
-                    className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
                   >
                     {t("sync.collapseAll")}
                   </Button>
-                  <Separator orientation="vertical" className="h-4 mx-0.5" />
+                  <Separator orientation="vertical" className="h-3.5 mx-0.5" />
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleSelectAll}
-                    className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
                   >
                     {t("sync.selectAll")}
                   </Button>
@@ -192,7 +189,7 @@ export function SyncPage({ connections }: SyncPageProps) {
                     variant="ghost"
                     size="sm"
                     onClick={handleDeselectAll}
-                    className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground"
                   >
                     {t("sync.deselectAll")}
                   </Button>
@@ -218,12 +215,12 @@ export function SyncPage({ connections }: SyncPageProps) {
 
             {/* Right: SQL Preview (60%) */}
             <div className="flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between px-3 h-10 border-b bg-muted/30 shrink-0">
+              <div className="flex items-center justify-between px-3 h-9 border-b bg-muted/20 shrink-0">
                 <span className="text-xs font-semibold">{t("sql.preview")}</span>
               </div>
               <div className="flex-1 overflow-auto min-h-0">
                 {selectedSql ? (
-                  <pre className="p-3 text-xs font-mono whitespace-pre-wrap break-all leading-relaxed">
+                  <pre className="px-4 py-3 text-[13px] font-mono whitespace-pre-wrap break-all leading-6">
                     {selectedSql}
                   </pre>
                 ) : (
@@ -237,30 +234,30 @@ export function SyncPage({ connections }: SyncPageProps) {
           </div>
 
           {/* Bottom Action Bar */}
-          <div className="shrink-0 border-t bg-muted/20 px-5 py-2.5 flex items-center justify-between">
+          <div className="shrink-0 border-t bg-muted/20 px-5 py-2 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">
               {selectedCount > 0
                 ? t("sync.selectedCount", { count: selectedCount })
                 : t("sync.noSelected")}
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onExportSql}
                 disabled={!selectedSql || isExporting}
-                className="h-8"
+                className="h-7 text-xs"
               >
-                <Download className="h-3.5 w-3.5 mr-1.5" />
+                <Download className="h-3 w-3 mr-1" />
                 {t("sql.export")}
               </Button>
               <Button
                 size="sm"
                 onClick={handleExecute}
                 disabled={!selectedSql || isExecuting}
-                className="h-8"
+                className="h-7 text-xs"
               >
-                <Play className="h-3.5 w-3.5 mr-1.5" />
+                <Play className="h-3 w-3 mr-1" />
                 {isExecuting ? t("common.loading") : t("sync.execute")}
               </Button>
             </div>
@@ -268,7 +265,7 @@ export function SyncPage({ connections }: SyncPageProps) {
         </>
       ) : (
         /* Empty State */
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center border-t">
           <div className="text-center max-w-sm">
             <DatabaseZap className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
             <h3 className="text-sm font-medium mb-1.5">{t("sync.emptyTitle")}</h3>

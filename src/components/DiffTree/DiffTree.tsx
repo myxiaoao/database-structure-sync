@@ -92,7 +92,7 @@ function DiffItemRow({
 
   return (
     <div
-      className="flex items-center gap-2 py-1.5 pl-2 pr-2.5 rounded cursor-pointer hover:bg-muted/80 text-xs"
+      className="flex items-center gap-2 py-2 pl-2 pr-2.5 rounded cursor-pointer hover:bg-muted/80 text-xs"
       onClick={onClick}
     >
       <Checkbox
@@ -106,7 +106,9 @@ function DiffItemRow({
       />
       {getDiffIcon(item.diff_type)}
       <span className="flex-1 truncate font-medium">{item.object_name || item.table_name}</span>
-      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${badge.className}`}>
+      <span
+        className={`text-[10px] px-2 py-0.5 rounded-sm font-medium shrink-0 ${badge.className}`}
+      >
         {badge.label}
       </span>
     </div>
@@ -153,9 +155,9 @@ function TableGroup({
   };
 
   return (
-    <div className="mb-1">
+    <div className="mb-0.5">
       <div
-        className="flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer hover:bg-muted/80"
+        className="flex items-center gap-2 py-2 px-2 rounded-md cursor-pointer hover:bg-muted/80"
         onClick={onToggleExpand}
       >
         <span className="p-0">
@@ -183,7 +185,7 @@ function TableGroup({
         </span>
       </div>
       {isExpanded && (
-        <div className="border-l-2 border-muted ml-5 pl-2 mt-0.5 mb-1">
+        <div className="border-l-2 border-muted ml-5 pl-2 mt-0.5 mb-1.5">
           {group.items.map((item) => (
             <DiffItemRow
               key={item.id}
