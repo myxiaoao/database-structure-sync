@@ -139,7 +139,7 @@ export function SyncPage({ connections }: SyncPageProps) {
               onClick={onCompare}
               disabled={!canCompare || isComparing}
               variant="outline"
-              className="shrink-0 h-auto w-[100px] text-sm font-medium border-foreground/20 hover:border-foreground/40"
+              className="shrink-0 h-auto min-w-[100px] px-5 text-sm font-medium border-foreground/20 hover:border-foreground/40"
             >
               {isComparing ? t("common.loading") : t("sync.compare")}
             </Button>
@@ -220,7 +220,7 @@ export function SyncPage({ connections }: SyncPageProps) {
               </div>
               <div className="flex-1 overflow-auto min-h-0">
                 {selectedSql ? (
-                  <pre className="px-4 py-3 text-[13px] font-mono whitespace-pre-wrap break-all leading-6">
+                  <pre className="px-4 py-3 text-[13px] font-mono whitespace-pre-wrap break-all leading-[22px]">
                     {selectedSql}
                   </pre>
                 ) : (
