@@ -37,7 +37,11 @@ impl PostgresDriver {
 
         if let Some(ssl) = ssl_config {
             if ssl.enabled {
-                opts = opts.ssl_mode(sqlx::postgres::PgSslMode::Require);
+                if ssl.verify_server {
+                    opts = opts.ssl_mode(sqlx::postgres::PgSslMode::VerifyCa);
+                } else {
+                    opts = opts.ssl_mode(sqlx::postgres::PgSslMode::Require);
+                }
                 if let Some(ca_path) = &ssl.ca_cert_path {
                     opts = opts.ssl_root_cert(ca_path);
                 }

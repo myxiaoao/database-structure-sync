@@ -1014,6 +1014,8 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
+ "data-encoding",
+ "dirs",
  "keyring",
  "log",
  "russh",

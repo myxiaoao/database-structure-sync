@@ -1,6 +1,9 @@
 use anyhow::{Result, anyhow};
+use log::{info, warn};
 use russh::client;
 use russh_keys::key::PublicKey;
+use std::io::Write;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -8,20 +11,165 @@ use tokio::sync::Mutex;
 
 use crate::models::{SshAuthMethod, SshConfig};
 
-struct Client;
+/// Get the path to the user's known_hosts file.
+fn known_hosts_path() -> Option<PathBuf> {
+    dirs::home_dir().map(|h| h.join(".ssh").join("known_hosts"))
+}
+
+/// Check if a host key matches an entry in known_hosts.
+/// Returns Ok(true) if matched, Ok(false) if host not found, Err if key mismatch.
+fn check_known_hosts(host: &str, port: u16, key: &PublicKey) -> Result<bool> {
+    let path = match known_hosts_path() {
+        Some(p) if p.exists() => p,
+        _ => return Ok(false), // No known_hosts file, host unknown
+    };
+
+    let contents = std::fs::read_to_string(&path)?;
+    let host_pattern = if port == 22 {
+        host.to_string()
+    } else {
+        format!("[{}]:{}", host, port)
+    };
+
+    for line in contents.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        let parts: Vec<&str> = line.splitn(3, ' ').collect();
+        if parts.len() < 3 {
+            continue;
+        }
+
+        let hosts_field = parts[0];
+        let key_type = parts[1];
+        let key_data = parts[2];
+
+        // Check if this line matches our host
+        let host_matches = hosts_field
+            .split(',')
+            .any(|h| h.trim() == host_pattern || h.trim() == host);
+
+        if !host_matches {
+            continue;
+        }
+
+        // Host found — verify the key matches
+        let stored_key_str = format!("{} {}", key_type, key_data);
+        let current_key_str = format_public_key(key);
+
+        if stored_key_str == current_key_str {
+            return Ok(true); // Key matches
+        } else {
+            return Err(anyhow!(
+                "SSH host key mismatch for {}! \
+                 The server's key has changed, which could indicate a MITM attack. \
+                 If you trust this server, remove the old entry from ~/.ssh/known_hosts and retry.",
+                host_pattern
+            ));
+        }
+    }
+
+    Ok(false) // Host not found
+}
+
+/// Append a host key to known_hosts (TOFU — Trust On First Use).
+fn save_to_known_hosts(host: &str, port: u16, key: &PublicKey) {
+    let path = match known_hosts_path() {
+        Some(p) => p,
+        None => return,
+    };
+
+    // Ensure .ssh directory exists
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+
+    let host_pattern = if port == 22 {
+        host.to_string()
+    } else {
+        format!("[{}]:{}", host, port)
+    };
+
+    let key_str = format_public_key(key);
+    let line = format!("{} {}\n", host_pattern, key_str);
+
+    match std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        Ok(mut file) => {
+            let _ = file.write_all(line.as_bytes());
+            info!("Added SSH host key for {} to known_hosts", host_pattern);
+        }
+        Err(e) => {
+            warn!("Failed to save SSH host key to known_hosts: {}", e);
+        }
+    }
+}
+
+/// Format a public key as "type base64data" for known_hosts comparison/storage.
+fn format_public_key(key: &PublicKey) -> String {
+    match key {
+        PublicKey::Ed25519(k) => {
+            format!(
+                "ssh-ed25519 {}",
+                data_encoding::BASE64.encode(&encode_ed25519_pubkey(k.as_bytes()))
+            )
+        }
+        _ => {
+            // Fallback: use debug representation for comparison
+            // This covers RSA, ECDSA, etc.
+            format!("{:?}", key)
+        }
+    }
+}
+
+/// Encode an Ed25519 public key in SSH wire format (type string + key bytes).
+fn encode_ed25519_pubkey(raw_bytes: &[u8]) -> Vec<u8> {
+    let key_type = b"ssh-ed25519";
+    let mut buf = Vec::new();
+    buf.extend_from_slice(&(key_type.len() as u32).to_be_bytes());
+    buf.extend_from_slice(key_type);
+    buf.extend_from_slice(&(raw_bytes.len() as u32).to_be_bytes());
+    buf.extend_from_slice(raw_bytes);
+    buf
+}
+
+struct SshClient {
+    host: String,
+    port: u16,
+}
 
 #[async_trait::async_trait]
-impl client::Handler for Client {
+impl client::Handler for SshClient {
     type Error = anyhow::Error;
 
     async fn check_server_key(
         &mut self,
-        _server_public_key: &PublicKey,
+        server_public_key: &PublicKey,
     ) -> Result<bool, Self::Error> {
-        // TODO: Implement known_hosts verification for production use.
-        // Currently accepts all host keys, which is vulnerable to MITM attacks.
-        // See: https://docs.rs/russh/latest/russh/client/trait.Handler.html
-        Ok(true)
+        match check_known_hosts(&self.host, self.port, server_public_key) {
+            Ok(true) => {
+                info!("SSH host key verified for {}:{}", self.host, self.port);
+                Ok(true)
+            }
+            Ok(false) => {
+                // TOFU: first connection, save and accept
+                warn!(
+                    "SSH host {}:{} not in known_hosts, accepting key (TOFU)",
+                    self.host, self.port
+                );
+                save_to_known_hosts(&self.host, self.port, server_public_key);
+                Ok(true)
+            }
+            Err(e) => {
+                // Key mismatch — reject
+                Err(e)
+            }
+        }
     }
 }
 
@@ -33,7 +181,10 @@ pub struct SshTunnel {
 impl SshTunnel {
     pub async fn new(ssh_config: &SshConfig, remote_host: &str, remote_port: u16) -> Result<Self> {
         let config = Arc::new(client::Config::default());
-        let sh = Client;
+        let sh = SshClient {
+            host: ssh_config.host.clone(),
+            port: ssh_config.port,
+        };
 
         let addr = format!("{}:{}", ssh_config.host, ssh_config.port);
         let mut session = client::connect(config, addr, sh).await?;

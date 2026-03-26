@@ -41,6 +41,8 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
 async-trait = "0.1"
 shellexpand = "3"
+dirs = "6"
+data-encoding = "2"
 
 [profile.release]
 lto = true

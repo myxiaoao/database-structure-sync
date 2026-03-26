@@ -37,7 +37,11 @@ impl MySqlDriver {
 
         if let Some(ssl) = ssl_config {
             if ssl.enabled {
-                opts = opts.ssl_mode(sqlx::mysql::MySqlSslMode::Required);
+                if ssl.verify_server {
+                    opts = opts.ssl_mode(sqlx::mysql::MySqlSslMode::VerifyCa);
+                } else {
+                    opts = opts.ssl_mode(sqlx::mysql::MySqlSslMode::Required);
+                }
                 if let Some(ca_path) = &ssl.ca_cert_path {
                     opts = opts.ssl_ca(ca_path);
                 }
