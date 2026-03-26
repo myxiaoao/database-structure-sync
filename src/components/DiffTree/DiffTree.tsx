@@ -20,35 +20,36 @@ interface GroupedDiff {
 }
 
 function getDiffIcon(diffType: string): React.ReactNode {
-  // 根据操作类型获取颜色
   const colorClass = diffType.includes("Added")
-    ? "text-green-500"
+    ? "text-emerald-500"
     : diffType.includes("Removed")
       ? "text-red-500"
       : diffType.includes("Modified")
         ? "text-amber-500"
         : "text-muted-foreground";
 
-  // 根据对象类型获取图标
   const prefix = diffType.replace(/(Added|Removed|Modified)$/, "");
 
   switch (prefix) {
     case "Table":
-      return <Table className={`h-3 w-3 ${colorClass}`} />;
+      return <Table className={`h-3.5 w-3.5 ${colorClass}`} />;
     case "Column":
-      return <Edit className={`h-3 w-3 ${colorClass}`} />;
+      return <Edit className={`h-3.5 w-3.5 ${colorClass}`} />;
     case "Index":
-      return <Key className={`h-3 w-3 ${colorClass}`} />;
+      return <Key className={`h-3.5 w-3.5 ${colorClass}`} />;
     case "ForeignKey":
-      return <Link className={`h-3 w-3 ${colorClass}`} />;
+      return <Link className={`h-3.5 w-3.5 ${colorClass}`} />;
     case "UniqueConstraint":
-      return <Fingerprint className={`h-3 w-3 ${colorClass}`} />;
+      return <Fingerprint className={`h-3.5 w-3.5 ${colorClass}`} />;
     default:
-      return <Table className={`h-3 w-3 ${colorClass}`} />;
+      return <Table className={`h-3.5 w-3.5 ${colorClass}`} />;
   }
 }
 
-function getDiffLabel(diffType: string, t: (key: string) => string): string {
+function getDiffBadge(
+  diffType: string,
+  t: (key: string) => string
+): { label: string; className: string } {
   const labels: Record<string, string> = {
     TableAdded: t("diff.tableAdded"),
     TableRemoved: t("diff.tableRemoved"),
@@ -65,7 +66,14 @@ function getDiffLabel(diffType: string, t: (key: string) => string): string {
     UniqueConstraintRemoved: t("diff.uniqueRemoved"),
     UniqueConstraintModified: t("diff.uniqueModified"),
   };
-  return labels[diffType] || diffType;
+
+  const colorClass = diffType.includes("Added")
+    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+    : diffType.includes("Removed")
+      ? "bg-red-500/10 text-red-600 dark:text-red-400"
+      : "bg-amber-500/10 text-amber-600 dark:text-amber-400";
+
+  return { label: labels[diffType] || diffType, className: colorClass };
 }
 
 function DiffItemRow({
@@ -80,10 +88,11 @@ function DiffItemRow({
   onClick: () => void;
 }) {
   const { t } = useTranslation();
+  const badge = getDiffBadge(item.diff_type, t);
 
   return (
     <div
-      className="flex items-center gap-1.5 py-1 pl-1.5 pr-2 rounded cursor-pointer hover:bg-muted/80 text-xs"
+      className="flex items-center gap-2 py-1.5 pl-2 pr-2.5 rounded cursor-pointer hover:bg-muted/80 text-xs"
       onClick={onClick}
     >
       <Checkbox
@@ -96,8 +105,10 @@ function DiffItemRow({
         className="h-3.5 w-3.5"
       />
       {getDiffIcon(item.diff_type)}
-      <span className="flex-1 truncate">{item.object_name || item.table_name}</span>
-      <span className="text-[10px] text-muted-foreground">{getDiffLabel(item.diff_type, t)}</span>
+      <span className="flex-1 truncate font-medium">{item.object_name || item.table_name}</span>
+      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${badge.className}`}>
+        {badge.label}
+      </span>
     </div>
   );
 }
@@ -142,16 +153,16 @@ function TableGroup({
   };
 
   return (
-    <div className="mb-0.5">
+    <div className="mb-1">
       <div
-        className="flex items-center gap-1.5 py-1 px-2 rounded cursor-pointer hover:bg-muted/80"
+        className="flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer hover:bg-muted/80"
         onClick={onToggleExpand}
       >
         <span className="p-0">
           {isExpanded ? (
-            <ChevronDown className="h-3.5 w-3.5" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
           ) : (
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
           )}
         </span>
         <Checkbox
@@ -165,14 +176,14 @@ function TableGroup({
           onClick={handleGroupToggle}
           className="h-3.5 w-3.5"
         />
-        <Table className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="flex-1 text-xs font-medium truncate">{group.tableName}</span>
-        <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-muted rounded">
+        <Table className="h-4 w-4 text-muted-foreground" />
+        <span className="flex-1 text-sm font-semibold truncate">{group.tableName}</span>
+        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full font-medium">
           {group.items.length}
         </span>
       </div>
       {isExpanded && (
-        <div className="border-l border-muted ml-[47px]">
+        <div className="border-l-2 border-muted ml-5 pl-2 mt-0.5 mb-1">
           {group.items.map((item) => (
             <DiffItemRow
               key={item.id}
@@ -196,7 +207,6 @@ export function DiffTree({
   expandedTables,
   onExpandedChange,
 }: DiffTreeProps) {
-  // Group items by table name
   const groupedItems = useMemo(() => {
     const groups: Map<string, DiffItem[]> = new Map();
 
@@ -224,7 +234,7 @@ export function DiffTree({
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-1.5">
+      <div className="p-2">
         {groupedItems.map((group) => (
           <TableGroup
             key={group.tableName}

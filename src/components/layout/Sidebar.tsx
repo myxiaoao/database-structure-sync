@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Database, ChevronDown, ChevronRight, Trash2, Edit } from "lucide-react";
+import { Plus, Database, Trash2, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -31,92 +30,74 @@ export function Sidebar({
   selectedId,
 }: SidebarProps) {
   const { t } = useTranslation();
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-
-  const toggleExpand = (id: string) => {
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
 
   return (
-    <div className="w-56 border-r bg-muted/20 flex flex-col">
-      <div className="px-3 py-2 border-b flex items-center h-[45px]">
+    <div className="w-60 border-r bg-muted/20 flex flex-col">
+      <div className="px-3 py-2.5 border-b flex items-center justify-between h-[52px]">
         <h2 className="font-semibold text-sm">{t("connection.title")}</h2>
+        <Button
+          onClick={onNewConnection}
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          aria-label={t("connection.new")}
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-1.5">
+        <div className="p-2 space-y-0.5">
+          {connections.length === 0 && (
+            <div className="text-xs text-muted-foreground text-center py-8 px-4">
+              {t("connection.new")}
+            </div>
+          )}
           {connections.map((conn) => (
-            <div key={conn.id} className="mb-0.5">
-              <div
-                className={`flex items-center gap-1.5 py-1.5 px-2 rounded cursor-pointer hover:bg-muted/80 ${
-                  selectedId === conn.id ? "bg-muted" : ""
-                }`}
-                onClick={() => onSelectConnection?.(conn.id)}
-              >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleExpand(conn.id);
-                  }}
-                  className="p-0"
-                >
-                  {expanded[conn.id] ? (
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  ) : (
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  )}
-                </button>
-                <Database className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="flex-1 text-xs truncate">{conn.name}</span>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 flex items-center justify-center"
-                    >
-                      <span className="sr-only">Actions</span>
-                      <span className="text-xs leading-none">···</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onEditConnection?.(conn.id)}>
-                      <Edit className="h-3.5 w-3.5 mr-2" />
-                      {t("connection.edit")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => onDeleteConnection?.(conn.id)}
-                      className="text-destructive"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-2" />
-                      {t("connection.delete")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              {expanded[conn.id] && (
-                <div className="ml-6 text-[10px] text-muted-foreground py-1 px-2 space-y-0.5 border-l border-muted">
-                  <div>{DB_TYPE_LABELS[conn.db_type as DbType] || conn.db_type}</div>
-                  <div>
-                    {conn.host}:{conn.port}
-                  </div>
+            <div
+              key={conn.id}
+              className={`group flex items-start gap-2.5 py-2 px-2.5 rounded-md cursor-pointer transition-colors hover:bg-muted/80 ${
+                selectedId === conn.id ? "bg-muted" : ""
+              }`}
+              onClick={() => onSelectConnection?.(conn.id)}
+            >
+              <Database className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate leading-tight">{conn.name}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                  {DB_TYPE_LABELS[conn.db_type as DbType] || conn.db_type} · {conn.host}:{conn.port}
                 </div>
-              )}
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="sr-only">Actions</span>
+                    <span className="text-xs leading-none">···</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onEditConnection?.(conn.id)}>
+                    <Edit className="h-3.5 w-3.5 mr-2" />
+                    {t("connection.edit")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => onDeleteConnection?.(conn.id)}
+                    className="text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-2" />
+                    {t("connection.delete")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           ))}
         </div>
       </ScrollArea>
-
-      <div className="p-2 border-t">
-        <Button
-          onClick={onNewConnection}
-          className="w-full h-7 text-xs flex items-center justify-center"
-          size="sm"
-        >
-          <Plus className="h-3.5 w-3.5 shrink-0" />
-          <span>{t("connection.new")}</span>
-        </Button>
-      </div>
     </div>
   );
 }

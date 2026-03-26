@@ -1,4 +1,6 @@
 import { useTranslation } from "react-i18next";
+import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -19,7 +21,6 @@ interface ConnectionSelectorProps {
   loadingDbs: boolean;
   selectedDb: string;
   onDbChange: (db: string) => void;
-  children?: React.ReactNode;
 }
 
 export function ConnectionSelector({
@@ -32,17 +33,16 @@ export function ConnectionSelector({
   loadingDbs,
   selectedDb,
   onDbChange,
-  children,
 }: ConnectionSelectorProps) {
   const { t } = useTranslation();
 
   return (
-    <div className="flex items-center gap-2 p-2.5 bg-muted/30 rounded-lg border min-w-0">
-      <label className="text-xs font-medium text-muted-foreground whitespace-nowrap shrink-0">
+    <Card className="p-3.5 flex flex-col gap-2.5">
+      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
         {label}
-      </label>
+      </Label>
       <Select value={connectionId} onValueChange={onConnectionChange}>
-        <SelectTrigger className="h-8 text-sm min-w-0 flex-1">
+        <SelectTrigger className="h-9 text-sm">
           <SelectValue placeholder={t("sync.selectConnection")} />
         </SelectTrigger>
         <SelectContent>
@@ -55,7 +55,7 @@ export function ConnectionSelector({
       </Select>
       {needsDbSelect && (
         <Select value={selectedDb} onValueChange={onDbChange} disabled={loadingDbs}>
-          <SelectTrigger className="h-8 text-sm min-w-0 flex-1">
+          <SelectTrigger className="h-9 text-sm">
             <SelectValue
               placeholder={loadingDbs ? t("common.loading") : t("sync.selectDatabase")}
             />
@@ -69,7 +69,6 @@ export function ConnectionSelector({
           </SelectContent>
         </Select>
       )}
-      {children}
-    </div>
+    </Card>
   );
 }

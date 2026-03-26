@@ -1,9 +1,8 @@
 import { useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Download } from "lucide-react";
+import { Download, ArrowRight, Play, DatabaseZap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { DiffTree } from "@/components/DiffTree";
 import { ConnectionSelector } from "./ConnectionSelector";
@@ -88,10 +87,8 @@ export function SyncPage({ connections }: SyncPageProps) {
     }
   }, [handleExportSql, t]);
 
-  // 展开状态管理
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
 
-  // 获取所有表名用于全部展开
   const allTableNames = useMemo(() => {
     if (!diffResult) return [];
     const names = new Set<string>();
@@ -107,128 +104,124 @@ export function SyncPage({ connections }: SyncPageProps) {
     setExpandedTables(new Set());
   }, []);
 
-  // 只显示勾选项的 SQL，没有勾选则显示空
-  const previewSql = selectedSql;
+  const selectedCount = selectedItems.size;
 
   return (
-    <div className="h-full flex flex-col gap-3">
-      {/* Database Selectors - Two column layout matching diff results */}
-      <div className="grid grid-cols-2 gap-3 shrink-0">
-        <ConnectionSelector
-          label={t("sync.source")}
-          connections={connections}
-          connectionId={sourceId}
-          onConnectionChange={setSourceId}
-          needsDbSelect={sourceNeedsDbSelect}
-          databases={sourceDatabases}
-          loadingDbs={loadingSourceDbs}
-          selectedDb={sourceDb}
-          onDbChange={setSourceDb}
-        />
-        <ConnectionSelector
-          label={t("sync.target")}
-          connections={connections}
-          connectionId={targetId}
-          onConnectionChange={setTargetId}
-          needsDbSelect={targetNeedsDbSelect}
-          databases={targetDatabases}
-          loadingDbs={loadingTargetDbs}
-          selectedDb={targetDb}
-          onDbChange={setTargetDb}
-        >
-          <Button
-            onClick={onCompare}
-            disabled={!canCompare || isComparing}
-            size="sm"
-            className="h-8 shrink-0"
-          >
-            {isComparing ? t("common.loading") : t("sync.compare")}
-          </Button>
-        </ConnectionSelector>
+    <div className="h-full flex flex-col">
+      {/* Step 1: Endpoint Selection */}
+      <div className="shrink-0 p-4 pb-3">
+        <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-stretch">
+          <ConnectionSelector
+            label={t("sync.source")}
+            connections={connections}
+            connectionId={sourceId}
+            onConnectionChange={setSourceId}
+            needsDbSelect={sourceNeedsDbSelect}
+            databases={sourceDatabases}
+            loadingDbs={loadingSourceDbs}
+            selectedDb={sourceDb}
+            onDbChange={setSourceDb}
+          />
+          <div className="flex flex-col items-center justify-center gap-2">
+            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            <Button
+              onClick={onCompare}
+              disabled={!canCompare || isComparing}
+              size="sm"
+              className="h-8 px-4"
+            >
+              {isComparing ? t("common.loading") : t("sync.compare")}
+            </Button>
+          </div>
+          <ConnectionSelector
+            label={t("sync.target")}
+            connections={connections}
+            connectionId={targetId}
+            onConnectionChange={setTargetId}
+            needsDbSelect={targetNeedsDbSelect}
+            databases={targetDatabases}
+            loadingDbs={loadingTargetDbs}
+            selectedDb={targetDb}
+            onDbChange={setTargetDb}
+          />
+        </div>
       </div>
 
-      {/* Diff Results */}
-      {diffResult && (
-        <div className="flex-1 grid grid-cols-2 gap-3 min-h-0">
-          {/* Left: Diff Tree */}
-          <Card className="flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-3 h-9 border-b bg-muted/30">
-              <span className="text-xs font-medium">
-                {diffResult.items.length} {t("sync.changes")}
-              </span>
-              <div className="flex gap-1">
-                <Separator orientation="vertical" className="h-4" />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleExpandAll}
-                  className="h-6 px-2 text-xs"
-                >
-                  {t("sync.expandAll")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCollapseAll}
-                  className="h-6 px-2 text-xs"
-                >
-                  {t("sync.collapseAll")}
-                </Button>
-                <Separator orientation="vertical" className="h-4" />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSelectAll}
-                  className="h-6 px-2 text-xs"
-                >
-                  {t("sync.selectAll")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDeselectAll}
-                  className="h-6 px-2 text-xs"
-                >
-                  {t("sync.deselectAll")}
-                </Button>
+      <Separator />
+
+      {/* Step 2: Results */}
+      {diffResult ? (
+        <>
+          <div className="flex-1 grid grid-cols-[2fr_3fr] gap-0 min-h-0 overflow-hidden">
+            {/* Left: Diff Tree (40%) */}
+            <div className="flex flex-col border-r overflow-hidden">
+              <div className="flex items-center justify-between px-3 h-10 border-b bg-muted/30 shrink-0">
+                <span className="text-xs font-semibold">
+                  {diffResult.items.length} {t("sync.changes")}
+                </span>
+                <div className="flex gap-0.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleExpandAll}
+                    className="h-6 px-2 text-xs"
+                  >
+                    {t("sync.expandAll")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCollapseAll}
+                    className="h-6 px-2 text-xs"
+                  >
+                    {t("sync.collapseAll")}
+                  </Button>
+                  <Separator orientation="vertical" className="h-4 mx-0.5" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSelectAll}
+                    className="h-6 px-2 text-xs"
+                  >
+                    {t("sync.selectAll")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDeselectAll}
+                    className="h-6 px-2 text-xs"
+                  >
+                    {t("sync.deselectAll")}
+                  </Button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-hidden">
+                {diffResult.items.length > 0 ? (
+                  <DiffTree
+                    items={diffResult.items}
+                    selectedItems={selectedItems}
+                    onSelectionChange={setSelectedItems}
+                    onItemClick={setSelectedItem}
+                    expandedTables={expandedTables}
+                    onExpandedChange={setExpandedTables}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                    {t("sync.noChanges")}
+                  </div>
+                )}
               </div>
             </div>
-            <div className="flex-1 overflow-hidden">
-              {diffResult.items.length > 0 ? (
-                <DiffTree
-                  items={diffResult.items}
-                  selectedItems={selectedItems}
-                  onSelectionChange={setSelectedItems}
-                  onItemClick={setSelectedItem}
-                  expandedTables={expandedTables}
-                  onExpandedChange={setExpandedTables}
-                />
-              ) : (
-                <p className="p-3 text-sm text-muted-foreground">{t("sync.noChanges")}</p>
-              )}
-            </div>
-          </Card>
 
-          {/* Right: SQL Preview */}
-          <div className="flex flex-col gap-2 min-h-0">
-            <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
-              <div className="flex items-center justify-between px-3 h-9 border-b bg-muted/30 shrink-0">
-                <span className="text-xs font-medium">{t("sql.preview")}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onExportSql}
-                  disabled={!previewSql || isExporting}
-                  className="h-6 px-2 text-xs"
-                >
-                  <Download className="h-3 w-3 mr-1" />
-                  {t("sql.export")}
-                </Button>
+            {/* Right: SQL Preview (60%) */}
+            <div className="flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between px-3 h-10 border-b bg-muted/30 shrink-0">
+                <span className="text-xs font-semibold">{t("sql.preview")}</span>
               </div>
               <div className="flex-1 overflow-auto min-h-0">
-                {previewSql ? (
-                  <pre className="p-3 text-xs font-mono whitespace-pre-wrap break-all bg-muted/20">
-                    {previewSql}
+                {selectedSql ? (
+                  <pre className="p-3 text-xs font-mono whitespace-pre-wrap break-all leading-relaxed">
+                    {selectedSql}
                   </pre>
                 ) : (
                   <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
@@ -236,15 +229,46 @@ export function SyncPage({ connections }: SyncPageProps) {
                   </div>
                 )}
               </div>
-            </Card>
-            <Button
-              onClick={handleExecute}
-              disabled={!selectedSql || isExecuting}
-              size="sm"
-              className="h-8 shrink-0"
-            >
-              {isExecuting ? t("common.loading") : t("sync.execute")}
-            </Button>
+            </div>
+          </div>
+
+          {/* Bottom Action Bar */}
+          <div className="shrink-0 border-t bg-muted/20 px-4 py-2.5 flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">
+              {selectedCount > 0
+                ? t("sync.selectedCount", { count: selectedCount })
+                : t("sync.noSelected")}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onExportSql}
+                disabled={!selectedSql || isExporting}
+                className="h-8"
+              >
+                <Download className="h-3.5 w-3.5 mr-1.5" />
+                {t("sql.export")}
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleExecute}
+                disabled={!selectedSql || isExecuting}
+                className="h-8"
+              >
+                <Play className="h-3.5 w-3.5 mr-1.5" />
+                {isExecuting ? t("common.loading") : t("sync.execute")}
+              </Button>
+            </div>
+          </div>
+        </>
+      ) : (
+        /* Empty State */
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-sm">
+            <DatabaseZap className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
+            <h3 className="text-sm font-medium mb-1.5">{t("sync.emptyTitle")}</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">{t("sync.emptyDesc")}</p>
           </div>
         </div>
       )}
