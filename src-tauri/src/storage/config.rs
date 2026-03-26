@@ -74,13 +74,12 @@ impl ConfigStore {
             .fetch_all(&self.pool)
             .await?;
 
+        // Don't read passwords from keychain for listing — avoids repeated
+        // macOS Keychain authorization prompts on app startup.
+        // Passwords are only loaded when get_connection is called.
         let connections = rows
             .into_iter()
-            .map(|row| {
-                let (password, ssh_password, ssh_passphrase) =
-                    Self::fetch_connection_passwords(&row);
-                row.into_connection(password, ssh_password, ssh_passphrase)
-            })
+            .map(|row| row.into_connection(String::new(), None, None))
             .collect();
 
         Ok(connections)
