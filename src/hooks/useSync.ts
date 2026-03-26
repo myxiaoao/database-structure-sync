@@ -43,7 +43,8 @@ export function useSync({ connections }: UseSyncOptions) {
   const handleCompare = useCallback(async () => {
     if (!canCompare) return;
 
-    setDiffResult(null);
+    // Keep old diffResult visible during loading to avoid layout flash.
+    // Only clear selection state so the UI shows "loading" without jumping.
     setSelectedItems(new Set());
     setSelectedItem(null);
 

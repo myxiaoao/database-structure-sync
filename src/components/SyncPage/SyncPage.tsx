@@ -152,7 +152,9 @@ export function SyncPage({ connections }: SyncPageProps) {
       {/* Step 2: Results */}
       {diffResult ? (
         <>
-          <div className="flex-1 grid grid-cols-[2fr_3fr] gap-0 min-h-0 overflow-hidden">
+          <div
+            className={`flex-1 grid grid-cols-[2fr_3fr] gap-0 min-h-0 overflow-hidden transition-opacity duration-150 ${isComparing ? "opacity-40 pointer-events-none" : ""}`}
+          >
             {/* Left: Diff Tree (40%) */}
             <div className="flex flex-col border-r overflow-hidden">
               <div className="flex items-center justify-between px-3 h-10 border-b bg-muted/30 shrink-0">
