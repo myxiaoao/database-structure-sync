@@ -110,14 +110,9 @@ export function SyncPage({ connections }: SyncPageProps) {
     <div className="h-full flex flex-col">
       {/* Endpoint Selection */}
       <div className="shrink-0 px-4 pt-3 pb-2">
-        <div className="border rounded-lg px-3 py-2.5">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-baseline gap-2">
-              <h2 className="text-xs font-semibold">{t("app.subtitle")}</h2>
-              <span className="text-[10px] text-muted-foreground">{t("sync.endpointHint")}</span>
-            </div>
-          </div>
-          <div className="flex items-stretch gap-3">
+        <div className="border border-border/50 rounded-xl px-3.5 py-3">
+          <h2 className="text-[13px] font-semibold mb-2">{t("app.subtitle")}</h2>
+          <div className="flex items-stretch gap-2.5">
             <ConnectionSelector
               label={t("sync.source")}
               connections={connections}
@@ -143,7 +138,8 @@ export function SyncPage({ connections }: SyncPageProps) {
             <Button
               onClick={onCompare}
               disabled={!canCompare || isComparing}
-              className="shrink-0 h-auto px-5"
+              variant="default"
+              className="shrink-0 h-auto w-[120px] text-sm"
             >
               {isComparing ? t("common.loading") : t("sync.compare")}
             </Button>

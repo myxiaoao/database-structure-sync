@@ -36,13 +36,11 @@ export function ConnectionSelector({
   const selectedConn = connections.find((c) => c.id === connectionId);
 
   return (
-    <div className="flex-1 min-w-0 border rounded-md px-2.5 py-2">
-      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-        {label}
-      </div>
+    <div className="flex-1 min-w-0 border border-border/60 rounded-lg px-2.5 py-2">
+      <div className="text-[11px] font-medium text-muted-foreground mb-1.5">{label}</div>
       <div className="flex items-center gap-2">
         <Select value={connectionId} onValueChange={onConnectionChange}>
-          <SelectTrigger className="h-8 text-sm min-w-0 flex-1">
+          <SelectTrigger className="h-[34px] text-sm min-w-0 flex-1">
             <SelectValue placeholder={t("sync.selectConnection")} />
           </SelectTrigger>
           <SelectContent>
@@ -55,7 +53,7 @@ export function ConnectionSelector({
         </Select>
         {needsDbSelect && (
           <Select value={selectedDb} onValueChange={onDbChange} disabled={loadingDbs}>
-            <SelectTrigger className="h-8 text-sm min-w-0 flex-1">
+            <SelectTrigger className="h-[34px] text-sm min-w-0 flex-1">
               <SelectValue
                 placeholder={loadingDbs ? t("common.loading") : t("sync.selectDatabase")}
               />
@@ -71,7 +69,7 @@ export function ConnectionSelector({
         )}
       </div>
       {selectedConn && (
-        <div className="text-[10px] text-muted-foreground mt-1">
+        <div className="text-[10px] text-muted-foreground/70 mt-1">
           {DB_TYPE_LABELS[selectedConn.db_type as DbType] || selectedConn.db_type} ·{" "}
           {selectedConn.host}:{selectedConn.port}
         </div>
