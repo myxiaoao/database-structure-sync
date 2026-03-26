@@ -117,7 +117,7 @@ export function SyncPage({ connections }: SyncPageProps) {
               <span className="text-[10px] text-muted-foreground">{t("sync.endpointHint")}</span>
             </div>
           </div>
-          <div className="flex items-start gap-3">
+          <div className="flex items-stretch gap-3">
             <ConnectionSelector
               label={t("sync.source")}
               connections={connections}
@@ -143,8 +143,7 @@ export function SyncPage({ connections }: SyncPageProps) {
             <Button
               onClick={onCompare}
               disabled={!canCompare || isComparing}
-              size="sm"
-              className="h-8 px-5 shrink-0 mt-4"
+              className="shrink-0 h-auto px-5"
             >
               {isComparing ? t("common.loading") : t("sync.compare")}
             </Button>
