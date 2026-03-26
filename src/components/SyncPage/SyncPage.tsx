@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Download, Play, DatabaseZap } from "lucide-react";
+import { Download, Play, DatabaseZap, FileCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { DiffTree } from "@/components/DiffTree";
@@ -138,8 +138,8 @@ export function SyncPage({ connections }: SyncPageProps) {
             <Button
               onClick={onCompare}
               disabled={!canCompare || isComparing}
-              variant="default"
-              className="shrink-0 h-auto w-[120px] text-sm"
+              variant="outline"
+              className="shrink-0 h-auto w-[120px] text-sm font-medium"
             >
               {isComparing ? t("common.loading") : t("sync.compare")}
             </Button>
@@ -157,16 +157,17 @@ export function SyncPage({ connections }: SyncPageProps) {
           >
             {/* Left: Diff Tree (40%) */}
             <div className="flex flex-col border-r overflow-hidden">
-              <div className="flex items-center justify-between px-3 h-10 border-b bg-muted/30 shrink-0">
+              <div className="flex items-center px-3 h-10 border-b bg-muted/30 shrink-0 gap-2">
                 <span className="text-xs font-semibold">
                   {diffResult.items.length} {t("sync.changes")}
                 </span>
-                <div className="flex gap-0.5">
+                <Separator orientation="vertical" className="h-4" />
+                <div className="flex gap-0.5 ml-auto">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleExpandAll}
-                    className="h-6 px-2 text-xs"
+                    className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
                   >
                     {t("sync.expandAll")}
                   </Button>
@@ -174,7 +175,7 @@ export function SyncPage({ connections }: SyncPageProps) {
                     variant="ghost"
                     size="sm"
                     onClick={handleCollapseAll}
-                    className="h-6 px-2 text-xs"
+                    className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
                   >
                     {t("sync.collapseAll")}
                   </Button>
@@ -183,7 +184,7 @@ export function SyncPage({ connections }: SyncPageProps) {
                     variant="ghost"
                     size="sm"
                     onClick={handleSelectAll}
-                    className="h-6 px-2 text-xs"
+                    className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
                   >
                     {t("sync.selectAll")}
                   </Button>
@@ -191,7 +192,7 @@ export function SyncPage({ connections }: SyncPageProps) {
                     variant="ghost"
                     size="sm"
                     onClick={handleDeselectAll}
-                    className="h-6 px-2 text-xs"
+                    className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
                   >
                     {t("sync.deselectAll")}
                   </Button>
@@ -226,8 +227,9 @@ export function SyncPage({ connections }: SyncPageProps) {
                     {selectedSql}
                   </pre>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                    {t("sql.empty")}
+                  <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground/40">
+                    <FileCode className="h-8 w-8" />
+                    <span className="text-xs text-muted-foreground/60">{t("sql.empty")}</span>
                   </div>
                 )}
               </div>
