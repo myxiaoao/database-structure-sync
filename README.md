@@ -41,6 +41,16 @@ Download the latest release for your platform from the [Releases](https://github
 - **Windows**: `.msi` or `.exe` installer
 - **Linux**: `.deb`, `.rpm`, or `.AppImage`
 
+### macOS Gatekeeper
+
+If macOS shows "app is damaged and can't be opened", run:
+
+```bash
+xattr -cr "/Applications/Database Structure Sync.app"
+```
+
+This removes the quarantine attribute from unsigned development builds.
+
 ### Build from Source
 
 #### Prerequisites
