@@ -507,7 +507,7 @@ describe("useSync", () => {
 
     expect(exportResult).toBe(true);
     expect(mockSave).toHaveBeenCalledWith({
-      defaultPath: "sync.sql",
+      defaultPath: expect.stringMatching(/^sync_\d{14}\.sql$/),
       filters: [{ name: "SQL", extensions: ["sql"] }],
     });
     expect(mockInvoke).toHaveBeenCalledWith("save_sql_file", {
