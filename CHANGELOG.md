@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-03-27
+
+### Added
+- Timestamp in default SQL export filename to prevent overwriting previous exports
+
+### Fixed
+- Unified border-radius and overflow handling across components
+- Diff tree readability, SQL preview panel, toolbar, and bottom bar polish
+- Compare button contrast and toolbar font size fine-tuning
+- Endpoint selector design: compact horizontal toolbar layout with polished spacing
+- Flash on re-compare eliminated by keeping old results visible
+- Compare button height alignment with endpoint selector cards
+
+### Changed
+- Redesigned main layout for clearer information hierarchy
+- Redesigned endpoint selector as unified card with bottom action
+- Unified horizontal padding to px-5 across header and content
+
+## [1.2.0] - 2026-03-01
+
+### Fixed
+- Skip keychain reads in list_connections to prevent errors
+
+### Changed
+- Added macOS Gatekeeper workaround documentation
+- Synced Cargo.lock version
+
 ## [1.1.0] - 2026-02-24
 
 ### Added
