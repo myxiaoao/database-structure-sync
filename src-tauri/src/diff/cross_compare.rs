@@ -127,13 +127,92 @@ fn map_table_columns(
         })
         .collect();
 
+    // Collect skipped column names to filter them from PK/indexes/FKs/UCs
+    let skipped_cols: std::collections::HashSet<&str> = warnings
+        .iter()
+        .filter(|w| w.severity == WarningSeverity::Skipped)
+        .map(|w| w.column_name.as_str())
+        .collect();
+
+    // Filter primary key: remove skipped columns, drop PK entirely if empty
+    let mapped_pk = table.primary_key.as_ref().and_then(|pk| {
+        let cols: Vec<String> = pk
+            .columns
+            .iter()
+            .filter(|c| !skipped_cols.contains(c.as_str()))
+            .cloned()
+            .collect();
+        if cols.is_empty() {
+            None
+        } else {
+            Some(PrimaryKey {
+                name: pk.name.clone(),
+                columns: cols,
+            })
+        }
+    });
+
+    // Filter indexes: remove skipped columns, drop index if no columns remain
+    let mapped_indexes: Vec<Index> = table
+        .indexes
+        .iter()
+        .filter_map(|idx| {
+            let cols: Vec<String> = idx
+                .columns
+                .iter()
+                .filter(|c| !skipped_cols.contains(c.as_str()))
+                .cloned()
+                .collect();
+            if cols.is_empty() {
+                None
+            } else {
+                Some(Index {
+                    name: idx.name.clone(),
+                    columns: cols,
+                    unique: idx.unique,
+                    index_type: idx.index_type.clone(),
+                })
+            }
+        })
+        .collect();
+
+    // Filter foreign keys: drop entirely if any local column is skipped
+    let mapped_fks: Vec<ForeignKey> = table
+        .foreign_keys
+        .iter()
+        .filter(|fk| !fk.columns.iter().any(|c| skipped_cols.contains(c.as_str())))
+        .cloned()
+        .collect();
+
+    // Filter unique constraints: remove skipped columns, drop if empty
+    let mapped_ucs: Vec<UniqueConstraint> = table
+        .unique_constraints
+        .iter()
+        .filter_map(|uc| {
+            let cols: Vec<String> = uc
+                .columns
+                .iter()
+                .filter(|c| !skipped_cols.contains(c.as_str()))
+                .cloned()
+                .collect();
+            if cols.is_empty() {
+                None
+            } else {
+                Some(UniqueConstraint {
+                    name: uc.name.clone(),
+                    columns: cols,
+                })
+            }
+        })
+        .collect();
+
     let mapped_table = TableSchema {
         name: table.name.clone(),
         columns: mapped_columns,
-        primary_key: table.primary_key.clone(),
-        indexes: table.indexes.clone(),
-        foreign_keys: table.foreign_keys.clone(),
-        unique_constraints: table.unique_constraints.clone(),
+        primary_key: mapped_pk,
+        indexes: mapped_indexes,
+        foreign_keys: mapped_fks,
+        unique_constraints: mapped_ucs,
     };
 
     (mapped_table, warnings)
@@ -232,11 +311,33 @@ fn compare_tables_cross(
         .map(|c| (c.name.as_str(), c))
         .collect();
 
+    // Track skipped columns so we can exclude their indexes/FKs/UCs
+    let mut skipped_cols: std::collections::HashSet<String> = std::collections::HashSet::new();
+
     // Added + Modified columns
     for col in &source.columns {
         if !target_cols.contains_key(col.name.as_str()) {
             let (mapped_col, mapping) = map_column(col, source_mapper, target_mapper);
             if mapping.skipped {
+                skipped_cols.insert(col.name.clone());
+                *id_counter += 1;
+                diffs.push(DiffItem {
+                    id: id_counter.to_string(),
+                    diff_type: DiffType::ColumnAdded,
+                    table_name: source.name.clone(),
+                    object_name: Some(col.name.clone()),
+                    source_def: Some(col.data_type.clone()),
+                    target_def: None,
+                    sql: String::new(),
+                    selected: false,
+                    warnings: vec![TypeWarning {
+                        column_name: col.name.clone(),
+                        source_type: col.data_type.clone(),
+                        target_type: String::new(),
+                        message: mapping.warning.unwrap_or_default(),
+                        severity: WarningSeverity::Skipped,
+                    }],
+                });
                 continue;
             }
             let mut warnings = vec![];
@@ -265,6 +366,25 @@ fn compare_tables_cross(
             if !columns_equal_cross(col, target_col, source_mapper, target_mapper) {
                 let (mapped_col, mapping) = map_column(col, source_mapper, target_mapper);
                 if mapping.skipped {
+                    skipped_cols.insert(col.name.clone());
+                    *id_counter += 1;
+                    diffs.push(DiffItem {
+                        id: id_counter.to_string(),
+                        diff_type: DiffType::ColumnModified,
+                        table_name: source.name.clone(),
+                        object_name: Some(col.name.clone()),
+                        source_def: Some(col.data_type.clone()),
+                        target_def: Some(target_col.data_type.clone()),
+                        sql: String::new(),
+                        selected: false,
+                        warnings: vec![TypeWarning {
+                            column_name: col.name.clone(),
+                            source_type: col.data_type.clone(),
+                            target_type: String::new(),
+                            message: mapping.warning.unwrap_or_default(),
+                            severity: WarningSeverity::Skipped,
+                        }],
+                    });
                     continue;
                 }
                 let mut warnings = vec![];
@@ -311,11 +431,72 @@ fn compare_tables_cross(
         }
     }
 
-    // Indexes, FKs, UCs -- delegate to existing helpers (same-db logic is fine,
-    // these don't have type mapping concerns)
-    super::comparator::compare_indexes(source, target, sql_gen, diffs, id_counter);
-    super::comparator::compare_foreign_keys(source, target, sql_gen, diffs, id_counter);
-    super::comparator::compare_unique_constraints(source, target, sql_gen, diffs, id_counter);
+    // Indexes, FKs, UCs -- delegate to existing helpers, but filter out
+    // any that reference skipped columns to avoid generating broken SQL
+    if skipped_cols.is_empty() {
+        super::comparator::compare_indexes(source, target, sql_gen, diffs, id_counter);
+        super::comparator::compare_foreign_keys(source, target, sql_gen, diffs, id_counter);
+        super::comparator::compare_unique_constraints(source, target, sql_gen, diffs, id_counter);
+    } else {
+        let filter_indexes = |indexes: &[Index]| -> Vec<Index> {
+            indexes
+                .iter()
+                .filter(|idx| !idx.columns.iter().any(|c| skipped_cols.contains(c)))
+                .cloned()
+                .collect()
+        };
+        let filter_fks = |fks: &[ForeignKey]| -> Vec<ForeignKey> {
+            fks.iter()
+                .filter(|fk| !fk.columns.iter().any(|c| skipped_cols.contains(c)))
+                .cloned()
+                .collect()
+        };
+        let filter_ucs = |ucs: &[UniqueConstraint]| -> Vec<UniqueConstraint> {
+            ucs.iter()
+                .filter(|uc| !uc.columns.iter().any(|c| skipped_cols.contains(c)))
+                .cloned()
+                .collect()
+        };
+
+        let filtered_source = TableSchema {
+            name: source.name.clone(),
+            columns: source.columns.clone(),
+            primary_key: source.primary_key.clone(),
+            indexes: filter_indexes(&source.indexes),
+            foreign_keys: filter_fks(&source.foreign_keys),
+            unique_constraints: filter_ucs(&source.unique_constraints),
+        };
+        let filtered_target = TableSchema {
+            name: target.name.clone(),
+            columns: target.columns.clone(),
+            primary_key: target.primary_key.clone(),
+            indexes: filter_indexes(&target.indexes),
+            foreign_keys: filter_fks(&target.foreign_keys),
+            unique_constraints: filter_ucs(&target.unique_constraints),
+        };
+
+        super::comparator::compare_indexes(
+            &filtered_source,
+            &filtered_target,
+            sql_gen,
+            diffs,
+            id_counter,
+        );
+        super::comparator::compare_foreign_keys(
+            &filtered_source,
+            &filtered_target,
+            sql_gen,
+            diffs,
+            id_counter,
+        );
+        super::comparator::compare_unique_constraints(
+            &filtered_source,
+            &filtered_target,
+            sql_gen,
+            diffs,
+            id_counter,
+        );
+    }
 }
 
 #[cfg(test)]
@@ -813,6 +994,123 @@ mod tests {
         assert!(
             col_mods.is_empty(),
             "now() vs CURRENT_TIMESTAMP should be treated as equal after normalization"
+        );
+    }
+
+    #[test]
+    fn test_skipped_column_generates_diff_item_with_warning() {
+        // In compare_tables_cross, a skipped column should produce a DiffItem
+        // with empty sql, selected=false, and Skipped warning
+        let source = vec![make_table(
+            "data",
+            vec![
+                make_column("id", "int(11)"),
+                make_column("meta", "hstore"), // Unknown to MySQL
+            ],
+        )];
+        let target = vec![make_table("data", vec![make_column("id", "integer")])];
+
+        let diffs = compare_schemas_cross(
+            &source,
+            &target,
+            &MySqlSqlGenerator as &dyn SqlGenerator,
+            &PostgresTypeMapper,
+            &MySqlTypeMapper,
+        );
+
+        let meta_diffs: Vec<_> = diffs
+            .iter()
+            .filter(|d| d.object_name.as_deref() == Some("meta"))
+            .collect();
+        assert_eq!(
+            meta_diffs.len(),
+            1,
+            "skipped column should still produce a DiffItem"
+        );
+        assert_eq!(meta_diffs[0].diff_type, DiffType::ColumnAdded);
+        assert!(
+            meta_diffs[0].sql.is_empty(),
+            "skipped column should have empty SQL"
+        );
+        assert!(
+            !meta_diffs[0].selected,
+            "skipped column should not be selected"
+        );
+        assert_eq!(meta_diffs[0].warnings[0].severity, WarningSeverity::Skipped);
+    }
+
+    #[test]
+    fn test_skipped_column_index_excluded_from_comparison() {
+        // If a column is skipped, indexes referencing it should not be compared
+        let mut source_table = make_table(
+            "data",
+            vec![
+                make_column("id", "int(11)"),
+                make_column("meta", "hstore"), // Unknown to MySQL
+            ],
+        );
+        source_table.indexes.push(Index {
+            name: "idx_meta".to_string(),
+            columns: vec!["meta".to_string()],
+            unique: false,
+            index_type: "BTREE".to_string(),
+        });
+
+        let target = vec![make_table("data", vec![make_column("id", "integer")])];
+
+        let diffs = compare_schemas_cross(
+            &[source_table],
+            &target,
+            &MySqlSqlGenerator as &dyn SqlGenerator,
+            &PostgresTypeMapper,
+            &MySqlTypeMapper,
+        );
+
+        // Should NOT have an IndexAdded for idx_meta (it references a skipped column)
+        let idx_diffs: Vec<_> = diffs
+            .iter()
+            .filter(|d| matches!(d.diff_type, DiffType::IndexAdded))
+            .collect();
+        assert!(
+            idx_diffs.is_empty(),
+            "index on skipped column should be excluded, got: {:?}",
+            idx_diffs.iter().map(|d| &d.object_name).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_table_added_skipped_col_pk_cleaned() {
+        // CREATE TABLE with a skipped column that's part of PK should clean up the PK
+        let mut table = make_table(
+            "data",
+            vec![make_column("id", "int(11)"), make_column("meta", "hstore")],
+        );
+        table.primary_key = Some(PrimaryKey {
+            name: Some("pk_data".to_string()),
+            columns: vec!["id".to_string(), "meta".to_string()],
+        });
+
+        let diffs = compare_schemas_cross(
+            &[table],
+            &[],
+            &MySqlSqlGenerator as &dyn SqlGenerator,
+            &PostgresTypeMapper,
+            &MySqlTypeMapper,
+        );
+
+        let table_added: Vec<_> = diffs
+            .iter()
+            .filter(|d| d.diff_type == DiffType::TableAdded)
+            .collect();
+        assert_eq!(table_added.len(), 1);
+        // SQL should have PRIMARY KEY with only "id", not "meta"
+        assert!(
+            table_added[0].sql.contains("PRIMARY KEY"),
+            "should still have PK"
+        );
+        assert!(
+            !table_added[0].sql.contains("meta"),
+            "skipped column should not be in PK"
         );
     }
 }

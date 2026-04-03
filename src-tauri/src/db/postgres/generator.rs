@@ -6,6 +6,19 @@ use super::reader::PostgresDriver;
 
 pub struct PostgresSqlGenerator;
 
+/// Choose the correct SERIAL variant based on the column's data type.
+/// Falls back to SERIAL if the type doesn't clearly map to a size.
+fn serial_type_for(data_type: &str) -> &'static str {
+    let lower = data_type.to_lowercase();
+    if lower.contains("big") || lower == "int8" {
+        "BIGSERIAL"
+    } else if lower.contains("small") || lower == "int2" {
+        "SMALLSERIAL"
+    } else {
+        "SERIAL"
+    }
+}
+
 impl SqlGenerator for PostgresSqlGenerator {
     fn quote_identifier(&self, name: &str) -> String {
         format!("\"{}\"", name.replace('"', "\"\""))
@@ -17,7 +30,7 @@ impl SqlGenerator for PostgresSqlGenerator {
 
         for col in &table.columns {
             let data_type = if col.auto_increment {
-                "SERIAL".to_string()
+                serial_type_for(&col.data_type).to_string()
             } else {
                 col.data_type.clone()
             };
@@ -103,7 +116,7 @@ impl SqlGenerator for PostgresSqlGenerator {
 
     fn generate_add_column(&self, table: &str, column: &Column) -> String {
         let data_type = if column.auto_increment {
-            "SERIAL".to_string()
+            serial_type_for(&column.data_type).to_string()
         } else {
             column.data_type.clone()
         };
@@ -142,6 +155,21 @@ impl SqlGenerator for PostgresSqlGenerator {
             tbl, col, column.data_type
         ));
 
+        // Auto-increment: create sequence and wire it up
+        if column.auto_increment {
+            let seq_name = format!("{}_{}_seq", table, column.name);
+            let quoted_seq = self.quote_identifier(&seq_name);
+            stmts.push(format!("CREATE SEQUENCE IF NOT EXISTS {};", quoted_seq));
+            stmts.push(format!(
+                "ALTER TABLE {} ALTER COLUMN {} SET DEFAULT nextval('{}');",
+                tbl, col, seq_name
+            ));
+            stmts.push(format!(
+                "ALTER SEQUENCE {} OWNED BY {}.{};",
+                quoted_seq, tbl, col
+            ));
+        }
+
         // NOT NULL
         if !column.nullable {
             stmts.push(format!(
@@ -155,17 +183,19 @@ impl SqlGenerator for PostgresSqlGenerator {
             ));
         }
 
-        // DEFAULT
-        if let Some(default) = &column.default_value {
-            stmts.push(format!(
-                "ALTER TABLE {} ALTER COLUMN {} SET DEFAULT {};",
-                tbl, col, default
-            ));
-        } else {
-            stmts.push(format!(
-                "ALTER TABLE {} ALTER COLUMN {} DROP DEFAULT;",
-                tbl, col
-            ));
+        // DEFAULT (only if not auto_increment, which is handled above)
+        if !column.auto_increment {
+            if let Some(default) = &column.default_value {
+                stmts.push(format!(
+                    "ALTER TABLE {} ALTER COLUMN {} SET DEFAULT {};",
+                    tbl, col, default
+                ));
+            } else {
+                stmts.push(format!(
+                    "ALTER TABLE {} ALTER COLUMN {} DROP DEFAULT;",
+                    tbl, col
+                ));
+            }
         }
 
         stmts.join("\n")
