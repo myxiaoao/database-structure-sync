@@ -41,14 +41,14 @@ const mockDiffResult: DiffResult = {
   items: [
     {
       id: "diff-1",
-      diff_type: "TableAdded",
+      diff_type: "table_added",
       table_name: "users",
       sql: "CREATE TABLE users (id INT PRIMARY KEY);",
       selected: false,
     },
     {
       id: "diff-2",
-      diff_type: "ColumnAdded",
+      diff_type: "column_added",
       table_name: "posts",
       object_name: "title",
       sql: "ALTER TABLE posts ADD COLUMN title VARCHAR(255);",

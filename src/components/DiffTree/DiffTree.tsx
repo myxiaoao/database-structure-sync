@@ -29,26 +29,26 @@ interface GroupedDiff {
 }
 
 function getDiffIcon(diffType: string): React.ReactNode {
-  const colorClass = diffType.includes("Added")
+  const colorClass = diffType.includes("added")
     ? "text-emerald-500"
-    : diffType.includes("Removed")
+    : diffType.includes("removed")
       ? "text-red-500"
-      : diffType.includes("Modified")
+      : diffType.includes("modified")
         ? "text-amber-500"
         : "text-muted-foreground";
 
-  const prefix = diffType.replace(/(Added|Removed|Modified)$/, "");
+  const prefix = diffType.replace(/_(added|removed|modified)$/, "");
 
   switch (prefix) {
-    case "Table":
+    case "table":
       return <Table className={`h-3.5 w-3.5 ${colorClass}`} />;
-    case "Column":
+    case "column":
       return <Edit className={`h-3.5 w-3.5 ${colorClass}`} />;
-    case "Index":
+    case "index":
       return <Key className={`h-3.5 w-3.5 ${colorClass}`} />;
-    case "ForeignKey":
+    case "foreign_key":
       return <Link className={`h-3.5 w-3.5 ${colorClass}`} />;
-    case "UniqueConstraint":
+    case "unique_constraint":
       return <Fingerprint className={`h-3.5 w-3.5 ${colorClass}`} />;
     default:
       return <Table className={`h-3.5 w-3.5 ${colorClass}`} />;
@@ -60,25 +60,25 @@ function getDiffBadge(
   t: (key: string) => string
 ): { label: string; className: string } {
   const labels: Record<string, string> = {
-    TableAdded: t("diff.tableAdded"),
-    TableRemoved: t("diff.tableRemoved"),
-    ColumnAdded: t("diff.columnAdded"),
-    ColumnRemoved: t("diff.columnRemoved"),
-    ColumnModified: t("diff.columnModified"),
-    IndexAdded: t("diff.indexAdded"),
-    IndexRemoved: t("diff.indexRemoved"),
-    IndexModified: t("diff.indexModified"),
-    ForeignKeyAdded: t("diff.foreignKeyAdded"),
-    ForeignKeyRemoved: t("diff.foreignKeyRemoved"),
-    ForeignKeyModified: t("diff.foreignKeyModified"),
-    UniqueConstraintAdded: t("diff.uniqueAdded"),
-    UniqueConstraintRemoved: t("diff.uniqueRemoved"),
-    UniqueConstraintModified: t("diff.uniqueModified"),
+    table_added: t("diff.tableAdded"),
+    table_removed: t("diff.tableRemoved"),
+    column_added: t("diff.columnAdded"),
+    column_removed: t("diff.columnRemoved"),
+    column_modified: t("diff.columnModified"),
+    index_added: t("diff.indexAdded"),
+    index_removed: t("diff.indexRemoved"),
+    index_modified: t("diff.indexModified"),
+    foreign_key_added: t("diff.foreignKeyAdded"),
+    foreign_key_removed: t("diff.foreignKeyRemoved"),
+    foreign_key_modified: t("diff.foreignKeyModified"),
+    unique_constraint_added: t("diff.uniqueAdded"),
+    unique_constraint_removed: t("diff.uniqueRemoved"),
+    unique_constraint_modified: t("diff.uniqueModified"),
   };
 
-  const colorClass = diffType.includes("Added")
+  const colorClass = diffType.includes("added")
     ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-    : diffType.includes("Removed")
+    : diffType.includes("removed")
       ? "bg-red-500/10 text-red-600 dark:text-red-400"
       : "bg-amber-500/10 text-amber-600 dark:text-amber-400";
 

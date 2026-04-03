@@ -7,20 +7,20 @@ export const DB_TYPE_LABELS: Record<DbType, string> = {
 };
 
 export type DiffType =
-  | "TableAdded"
-  | "TableRemoved"
-  | "ColumnAdded"
-  | "ColumnRemoved"
-  | "ColumnModified"
-  | "IndexAdded"
-  | "IndexRemoved"
-  | "IndexModified"
-  | "ForeignKeyAdded"
-  | "ForeignKeyRemoved"
-  | "ForeignKeyModified"
-  | "UniqueConstraintAdded"
-  | "UniqueConstraintRemoved"
-  | "UniqueConstraintModified";
+  | "table_added"
+  | "table_removed"
+  | "column_added"
+  | "column_removed"
+  | "column_modified"
+  | "index_added"
+  | "index_removed"
+  | "index_modified"
+  | "foreign_key_added"
+  | "foreign_key_removed"
+  | "foreign_key_modified"
+  | "unique_constraint_added"
+  | "unique_constraint_removed"
+  | "unique_constraint_modified";
 
 export type SshAuthMethodConfig =
   | { password: { password: string } }

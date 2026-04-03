@@ -8,14 +8,14 @@ import { useState } from "react";
 const mockItems: DiffItem[] = [
   {
     id: "1",
-    diff_type: "TableAdded",
+    diff_type: "table_added",
     table_name: "users",
     sql: "CREATE TABLE users ...",
     selected: false,
   },
   {
     id: "2",
-    diff_type: "ColumnAdded",
+    diff_type: "column_added",
     table_name: "users",
     object_name: "email",
     sql: "ALTER TABLE users ADD COLUMN email ...",
@@ -23,7 +23,7 @@ const mockItems: DiffItem[] = [
   },
   {
     id: "3",
-    diff_type: "ColumnRemoved",
+    diff_type: "column_removed",
     table_name: "posts",
     object_name: "legacy_field",
     sql: "ALTER TABLE posts DROP COLUMN legacy_field",
@@ -31,7 +31,7 @@ const mockItems: DiffItem[] = [
   },
   {
     id: "4",
-    diff_type: "IndexAdded",
+    diff_type: "index_added",
     table_name: "posts",
     object_name: "idx_title",
     sql: "CREATE INDEX idx_title ON posts(title)",
@@ -39,7 +39,7 @@ const mockItems: DiffItem[] = [
   },
   {
     id: "5",
-    diff_type: "ColumnModified",
+    diff_type: "column_modified",
     table_name: "comments",
     object_name: "content",
     sql: "ALTER TABLE comments MODIFY content TEXT",
