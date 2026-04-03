@@ -385,4 +385,205 @@ mod tests {
             Some("true".to_string())
         );
     }
+
+    #[test]
+    fn test_from_canonical_binary_varbinary_to_bytea() {
+        let m = PostgresTypeMapper;
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Binary(16)).sql_type,
+            "bytea"
+        );
+        assert!(
+            m.from_canonical(&CanonicalType::Binary(16))
+                .warning
+                .is_none()
+        );
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Varbinary(256)).sql_type,
+            "bytea"
+        );
+    }
+
+    #[test]
+    fn test_from_canonical_blob_variants() {
+        let m = PostgresTypeMapper;
+        let tiny = m.from_canonical(&CanonicalType::TinyBlob);
+        assert_eq!(tiny.sql_type, "bytea");
+        assert!(tiny.warning.is_some());
+
+        let medium = m.from_canonical(&CanonicalType::MediumBlob);
+        assert_eq!(medium.sql_type, "bytea");
+        assert!(medium.warning.is_some());
+
+        let long = m.from_canonical(&CanonicalType::LongBlob);
+        assert_eq!(long.sql_type, "bytea");
+        assert!(long.warning.is_some());
+
+        let blob = m.from_canonical(&CanonicalType::Blob);
+        assert_eq!(blob.sql_type, "bytea");
+        assert!(blob.warning.is_none());
+    }
+
+    #[test]
+    fn test_from_canonical_longtext_degraded() {
+        let m = PostgresTypeMapper;
+        let mapping = m.from_canonical(&CanonicalType::LongText);
+        assert_eq!(mapping.sql_type, "text");
+        assert!(mapping.warning.is_some());
+    }
+
+    #[test]
+    fn test_from_canonical_tinytext_degraded() {
+        let m = PostgresTypeMapper;
+        let mapping = m.from_canonical(&CanonicalType::TinyText);
+        assert_eq!(mapping.sql_type, "text");
+        assert!(mapping.warning.is_some());
+    }
+
+    #[test]
+    fn test_from_canonical_time_with_fsp() {
+        let m = PostgresTypeMapper;
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Time { fsp: 3 }).sql_type,
+            "time(3)"
+        );
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Time { fsp: 0 }).sql_type,
+            "time"
+        );
+    }
+
+    #[test]
+    fn test_from_canonical_datetime_timestamp_with_fsp() {
+        let m = PostgresTypeMapper;
+        assert_eq!(
+            m.from_canonical(&CanonicalType::DateTime { fsp: 6 })
+                .sql_type,
+            "timestamp(6)"
+        );
+        assert_eq!(
+            m.from_canonical(&CanonicalType::DateTime { fsp: 0 })
+                .sql_type,
+            "timestamp"
+        );
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Timestamp { fsp: 3 })
+                .sql_type,
+            "timestamp(3)"
+        );
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Timestamp { fsp: 0 })
+                .sql_type,
+            "timestamp"
+        );
+    }
+
+    #[test]
+    fn test_from_canonical_enum_degraded() {
+        let m = PostgresTypeMapper;
+        let mapping = m.from_canonical(&CanonicalType::Enum(vec![
+            "active".into(),
+            "inactive".into(),
+        ]));
+        assert!(mapping.sql_type.starts_with("character varying"));
+        assert!(mapping.warning.is_some());
+    }
+
+    #[test]
+    fn test_from_canonical_inet6_degraded() {
+        let m = PostgresTypeMapper;
+        let mapping = m.from_canonical(&CanonicalType::Inet6);
+        assert_eq!(mapping.sql_type, "inet");
+        assert!(mapping.warning.is_some());
+    }
+
+    #[test]
+    fn test_from_canonical_linestring_polygon_degraded() {
+        let m = PostgresTypeMapper;
+        let ls = m.from_canonical(&CanonicalType::LineString);
+        assert_eq!(ls.sql_type, "geometry");
+        assert!(ls.warning.is_some());
+
+        let pg = m.from_canonical(&CanonicalType::Polygon);
+        assert_eq!(pg.sql_type, "geometry");
+        assert!(pg.warning.is_some());
+    }
+
+    #[test]
+    fn test_from_canonical_array_recursive() {
+        let m = PostgresTypeMapper;
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Array(Box::new(CanonicalType::Int)))
+                .sql_type,
+            "integer[]"
+        );
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Array(Box::new(CanonicalType::Text)))
+                .sql_type,
+            "text[]"
+        );
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Array(Box::new(CanonicalType::Boolean)))
+                .sql_type,
+            "boolean[]"
+        );
+    }
+
+    #[test]
+    fn test_from_canonical_unknown_skipped() {
+        let m = PostgresTypeMapper;
+        let mapping = m.from_canonical(&CanonicalType::Unknown("hstore".to_string()));
+        assert!(mapping.skipped);
+    }
+
+    #[test]
+    fn test_from_canonical_decimal() {
+        let m = PostgresTypeMapper;
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Decimal {
+                precision: 10,
+                scale: 2
+            })
+            .sql_type,
+            "numeric(10,2)"
+        );
+    }
+
+    #[test]
+    fn test_from_canonical_char_varchar() {
+        let m = PostgresTypeMapper;
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Char(36)).sql_type,
+            "character(36)"
+        );
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Varchar(255)).sql_type,
+            "character varying(255)"
+        );
+    }
+
+    #[test]
+    fn test_map_default_value_passthrough() {
+        let m = PostgresTypeMapper;
+        assert_eq!(
+            m.map_default_value("'test'", &CanonicalType::Varchar(255)),
+            Some("'test'".to_string())
+        );
+        assert_eq!(
+            m.map_default_value("42", &CanonicalType::Int),
+            Some("42".to_string())
+        );
+    }
+
+    #[test]
+    fn test_map_default_value_whitespace_trim() {
+        let m = PostgresTypeMapper;
+        assert_eq!(
+            m.map_default_value(
+                "  CURRENT_TIMESTAMP  ",
+                &CanonicalType::Timestamp { fsp: 0 }
+            ),
+            Some("CURRENT_TIMESTAMP".to_string())
+        );
+    }
 }

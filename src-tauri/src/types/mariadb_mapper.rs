@@ -93,4 +93,61 @@ mod tests {
         assert_eq!(mapping.sql_type, "int");
         assert!(mapping.warning.is_none());
     }
+
+    #[test]
+    fn test_from_canonical_inet_delegates_to_mysql() {
+        let m = MariaDbTypeMapper;
+        let mapping = m.from_canonical(&CanonicalType::Inet);
+        assert_eq!(mapping.sql_type, "varchar(45)");
+        assert!(mapping.warning.is_some());
+    }
+
+    #[test]
+    fn test_from_canonical_array_delegates() {
+        let m = MariaDbTypeMapper;
+        let mapping = m.from_canonical(&CanonicalType::Array(Box::new(CanonicalType::Int)));
+        assert_eq!(mapping.sql_type, "json");
+        assert!(mapping.warning.is_some());
+    }
+
+    #[test]
+    fn test_from_canonical_decimal_delegates() {
+        let m = MariaDbTypeMapper;
+        let mapping = m.from_canonical(&CanonicalType::Decimal {
+            precision: 10,
+            scale: 2,
+        });
+        assert_eq!(mapping.sql_type, "decimal(10,2)");
+        assert!(mapping.warning.is_none());
+    }
+
+    #[test]
+    fn test_from_canonical_tinyint_delegates() {
+        let m = MariaDbTypeMapper;
+        let mapping = m.from_canonical(&CanonicalType::TinyInt);
+        assert_eq!(mapping.sql_type, "tinyint");
+        assert!(mapping.warning.is_none());
+    }
+
+    #[test]
+    fn test_map_default_value_delegates_boolean() {
+        let m = MariaDbTypeMapper;
+        assert_eq!(
+            m.map_default_value("true", &CanonicalType::Boolean),
+            Some("1".to_string())
+        );
+        assert_eq!(
+            m.map_default_value("false", &CanonicalType::Boolean),
+            Some("0".to_string())
+        );
+    }
+
+    #[test]
+    fn test_map_default_value_delegates_now() {
+        let m = MariaDbTypeMapper;
+        assert_eq!(
+            m.map_default_value("now()", &CanonicalType::DateTime { fsp: 0 }),
+            Some("CURRENT_TIMESTAMP".to_string())
+        );
+    }
 }

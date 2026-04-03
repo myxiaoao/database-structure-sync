@@ -310,6 +310,7 @@ fn compare_tables_cross(
 mod tests {
     use super::*;
     use crate::db::MySqlSqlGenerator;
+    use crate::db::PostgresSqlGenerator;
     use crate::types::{MySqlTypeMapper, PostgresTypeMapper};
 
     fn make_column(name: &str, data_type: &str) -> Column {
@@ -468,5 +469,279 @@ mod tests {
 
         assert_eq!(diffs.len(), 1);
         assert_eq!(diffs[0].diff_type, DiffType::TableRemoved);
+    }
+
+    #[test]
+    fn test_skipped_columns_filtered_from_create_table() {
+        // Unknown type should be skipped with a Skipped warning
+        let source = vec![make_table(
+            "data",
+            vec![
+                make_column("id", "int(11)"),
+                make_column("meta", "some_custom_type"), // Unknown → skipped
+            ],
+        )];
+        let target: Vec<TableSchema> = vec![];
+
+        let diffs = compare_schemas_cross(
+            &source,
+            &target,
+            &MySqlSqlGenerator as &dyn SqlGenerator,
+            &MySqlTypeMapper,
+            &PostgresTypeMapper,
+        );
+
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(diffs[0].diff_type, DiffType::TableAdded);
+        // The SQL should NOT contain the skipped column
+        assert!(
+            !diffs[0].sql.contains("meta"),
+            "skipped column should not appear in SQL"
+        );
+        // Should have a Skipped warning
+        let skipped: Vec<_> = diffs[0]
+            .warnings
+            .iter()
+            .filter(|w| w.severity == WarningSeverity::Skipped)
+            .collect();
+        assert_eq!(skipped.len(), 1);
+        assert_eq!(skipped[0].column_name, "meta");
+    }
+
+    #[test]
+    fn test_nullable_difference_detected() {
+        let mut source_col = make_column("name", "varchar(255)");
+        source_col.nullable = true;
+        let mut target_col = make_column("name", "character varying(255)");
+        target_col.nullable = false;
+
+        let source = vec![make_table("users", vec![source_col])];
+        let target = vec![make_table("users", vec![target_col])];
+
+        let diffs = compare_schemas_cross(
+            &source,
+            &target,
+            &PostgresSqlGenerator as &dyn SqlGenerator,
+            &MySqlTypeMapper,
+            &PostgresTypeMapper,
+        );
+
+        let col_mods: Vec<_> = diffs
+            .iter()
+            .filter(|d| d.diff_type == DiffType::ColumnModified)
+            .collect();
+        assert_eq!(col_mods.len(), 1, "nullable difference should be detected");
+    }
+
+    #[test]
+    fn test_auto_increment_difference_detected() {
+        let mut source_col = make_column("id", "int(11)");
+        source_col.auto_increment = true;
+        let target_col = make_column("id", "integer");
+
+        let source = vec![make_table("users", vec![source_col])];
+        let target = vec![make_table("users", vec![target_col])];
+
+        let diffs = compare_schemas_cross(
+            &source,
+            &target,
+            &PostgresSqlGenerator as &dyn SqlGenerator,
+            &MySqlTypeMapper,
+            &PostgresTypeMapper,
+        );
+
+        let col_mods: Vec<_> = diffs
+            .iter()
+            .filter(|d| d.diff_type == DiffType::ColumnModified)
+            .collect();
+        assert_eq!(
+            col_mods.len(),
+            1,
+            "auto_increment difference should be detected"
+        );
+    }
+
+    #[test]
+    fn test_modified_column_with_degradation_warning() {
+        // Source has jsonb, target has text — type differs AND jsonb degrades to json on MySQL target
+        let source = vec![make_table("data", vec![make_column("payload", "jsonb")])];
+        let target = vec![make_table("data", vec![make_column("payload", "text")])];
+
+        let diffs = compare_schemas_cross(
+            &source,
+            &target,
+            &MySqlSqlGenerator as &dyn SqlGenerator,
+            &PostgresTypeMapper,
+            &MySqlTypeMapper,
+        );
+
+        let col_mods: Vec<_> = diffs
+            .iter()
+            .filter(|d| d.diff_type == DiffType::ColumnModified)
+            .collect();
+        assert_eq!(col_mods.len(), 1);
+        // Should have a degradation warning for jsonb → json
+        assert!(
+            !col_mods[0].warnings.is_empty(),
+            "should have degradation warning for jsonb"
+        );
+        assert_eq!(col_mods[0].warnings[0].severity, WarningSeverity::Degraded);
+    }
+
+    #[test]
+    fn test_multiple_columns_mixed_warnings() {
+        // Table with: normal column (int), degraded column (jsonb), skipped column (unknown)
+        let source = vec![make_table(
+            "mixed",
+            vec![
+                make_column("id", "integer"),
+                make_column("data", "jsonb"),
+                make_column("custom", "hstore"), // Unknown to MySQL
+            ],
+        )];
+        let target: Vec<TableSchema> = vec![];
+
+        let diffs = compare_schemas_cross(
+            &source,
+            &target,
+            &MySqlSqlGenerator as &dyn SqlGenerator,
+            &PostgresTypeMapper,
+            &MySqlTypeMapper,
+        );
+
+        assert_eq!(diffs.len(), 1);
+        let warnings = &diffs[0].warnings;
+        let degraded: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.severity == WarningSeverity::Degraded)
+            .collect();
+        let skipped: Vec<_> = warnings
+            .iter()
+            .filter(|w| w.severity == WarningSeverity::Skipped)
+            .collect();
+        assert_eq!(
+            degraded.len(),
+            1,
+            "jsonb should produce one degraded warning"
+        );
+        assert_eq!(
+            skipped.len(),
+            1,
+            "hstore should produce one skipped warning"
+        );
+    }
+
+    #[test]
+    fn test_round_trip_mysql_to_pg_canonical_consistency() {
+        // MySQL int(11) → canonical → PG integer → canonical should both be CanonicalType::Int
+        let mysql = MySqlTypeMapper;
+        let pg = PostgresTypeMapper;
+
+        let mysql_canonical = mysql.to_canonical("int(11)");
+        let pg_mapping = pg.from_canonical(&mysql_canonical);
+        let pg_canonical = pg.to_canonical(&pg_mapping.sql_type);
+
+        assert_eq!(
+            mysql_canonical, pg_canonical,
+            "round-trip MySQL→PG should preserve canonical type"
+        );
+    }
+
+    #[test]
+    fn test_round_trip_pg_to_mysql_canonical_consistency() {
+        let pg = PostgresTypeMapper;
+        let mysql = MySqlTypeMapper;
+
+        // PG text → canonical → MySQL text → canonical
+        let pg_canonical = pg.to_canonical("text");
+        let mysql_mapping = mysql.from_canonical(&pg_canonical);
+        let mysql_canonical = mysql.to_canonical(&mysql_mapping.sql_type);
+        assert_eq!(
+            pg_canonical, mysql_canonical,
+            "round-trip PG→MySQL should preserve text"
+        );
+
+        // PG boolean → canonical → MySQL tinyint(1) → canonical
+        let pg_canonical = pg.to_canonical("boolean");
+        let mysql_mapping = mysql.from_canonical(&pg_canonical);
+        let mysql_canonical = mysql.to_canonical(&mysql_mapping.sql_type);
+        assert_eq!(
+            pg_canonical, mysql_canonical,
+            "round-trip PG→MySQL should preserve boolean"
+        );
+
+        // PG bigint → canonical → MySQL bigint → canonical
+        let pg_canonical = pg.to_canonical("bigint");
+        let mysql_mapping = mysql.from_canonical(&pg_canonical);
+        let mysql_canonical = mysql.to_canonical(&mysql_mapping.sql_type);
+        assert_eq!(
+            pg_canonical, mysql_canonical,
+            "round-trip PG→MySQL should preserve bigint"
+        );
+    }
+
+    #[test]
+    fn test_added_column_with_default_mapped() {
+        let mut col = make_column("active", "boolean");
+        col.default_value = Some("true".to_string());
+        let source = vec![make_table("users", vec![make_column("id", "integer"), col])];
+        let target = vec![make_table("users", vec![make_column("id", "int(11)")])];
+
+        let diffs = compare_schemas_cross(
+            &source,
+            &target,
+            &MySqlSqlGenerator as &dyn SqlGenerator,
+            &PostgresTypeMapper,
+            &MySqlTypeMapper,
+        );
+
+        let col_added: Vec<_> = diffs
+            .iter()
+            .filter(|d| d.diff_type == DiffType::ColumnAdded)
+            .collect();
+        assert_eq!(col_added.len(), 1);
+        // Default "true" should be mapped to "1" for MySQL
+        assert!(
+            col_added[0].sql.contains("DEFAULT 1"),
+            "PG 'true' default should map to MySQL '1'"
+        );
+    }
+
+    #[test]
+    fn test_identical_tables_cross_db_no_diff() {
+        // Same logical schema but different raw types — should produce no diffs
+        let source = vec![make_table(
+            "users",
+            vec![
+                make_column("id", "int(11)"),
+                make_column("name", "varchar(255)"),
+                make_column("active", "tinyint(1)"),
+            ],
+        )];
+        let target = vec![make_table(
+            "users",
+            vec![
+                make_column("id", "integer"),
+                make_column("name", "character varying(255)"),
+                make_column("active", "boolean"),
+            ],
+        )];
+
+        let diffs = compare_schemas_cross(
+            &source,
+            &target,
+            &PostgresSqlGenerator as &dyn SqlGenerator,
+            &MySqlTypeMapper,
+            &PostgresTypeMapper,
+        );
+
+        assert!(
+            diffs.is_empty(),
+            "logically identical schemas should produce no diffs, got: {:?}",
+            diffs
+                .iter()
+                .map(|d| (&d.diff_type, &d.object_name))
+                .collect::<Vec<_>>()
+        );
     }
 }

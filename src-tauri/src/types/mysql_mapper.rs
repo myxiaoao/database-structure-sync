@@ -218,11 +218,11 @@ impl TypeMapper for MySqlTypeMapper {
                 _ => Some(trimmed.to_string()),
             };
         }
-        if let Some(pos) = trimmed.find("::") {
-            return Some(trimmed[..pos].to_string());
-        }
         if trimmed.starts_with("nextval(") {
             return None;
+        }
+        if let Some(pos) = trimmed.find("::") {
+            return Some(trimmed[..pos].to_string());
         }
         Some(trimmed.to_string())
     }
@@ -420,6 +420,176 @@ mod tests {
         let m = MySqlTypeMapper;
         assert_eq!(
             m.map_default_value("42", &CanonicalType::Int),
+            Some("42".to_string())
+        );
+    }
+
+    #[test]
+    fn test_from_canonical_inet_degraded() {
+        let m = MySqlTypeMapper;
+        let mapping = m.from_canonical(&CanonicalType::Inet);
+        assert_eq!(mapping.sql_type, "varchar(45)");
+        assert!(mapping.warning.is_some());
+    }
+
+    #[test]
+    fn test_from_canonical_inet6_degraded() {
+        let m = MySqlTypeMapper;
+        let mapping = m.from_canonical(&CanonicalType::Inet6);
+        assert_eq!(mapping.sql_type, "varchar(45)");
+        assert!(mapping.warning.is_some());
+    }
+
+    #[test]
+    fn test_from_canonical_decimal() {
+        let m = MySqlTypeMapper;
+        let mapping = m.from_canonical(&CanonicalType::Decimal {
+            precision: 10,
+            scale: 2,
+        });
+        assert_eq!(mapping.sql_type, "decimal(10,2)");
+        assert!(mapping.warning.is_none());
+    }
+
+    #[test]
+    fn test_from_canonical_char_varchar() {
+        let m = MySqlTypeMapper;
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Char(36)).sql_type,
+            "char(36)"
+        );
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Varchar(255)).sql_type,
+            "varchar(255)"
+        );
+    }
+
+    #[test]
+    fn test_from_canonical_binary_varbinary() {
+        let m = MySqlTypeMapper;
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Binary(16)).sql_type,
+            "binary(16)"
+        );
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Varbinary(256)).sql_type,
+            "varbinary(256)"
+        );
+    }
+
+    #[test]
+    fn test_from_canonical_time_with_fsp() {
+        let m = MySqlTypeMapper;
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Time { fsp: 3 }).sql_type,
+            "time(3)"
+        );
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Time { fsp: 0 }).sql_type,
+            "time"
+        );
+    }
+
+    #[test]
+    fn test_from_canonical_datetime_with_fsp() {
+        let m = MySqlTypeMapper;
+        assert_eq!(
+            m.from_canonical(&CanonicalType::DateTime { fsp: 6 })
+                .sql_type,
+            "datetime(6)"
+        );
+        assert_eq!(
+            m.from_canonical(&CanonicalType::DateTime { fsp: 0 })
+                .sql_type,
+            "datetime"
+        );
+    }
+
+    #[test]
+    fn test_from_canonical_timestamp_with_fsp() {
+        let m = MySqlTypeMapper;
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Timestamp { fsp: 4 })
+                .sql_type,
+            "timestamp(4)"
+        );
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Timestamp { fsp: 0 })
+                .sql_type,
+            "timestamp"
+        );
+    }
+
+    #[test]
+    fn test_from_canonical_enum_set() {
+        let m = MySqlTypeMapper;
+        let mapping = m.from_canonical(&CanonicalType::Enum(vec!["a".into(), "b".into()]));
+        assert_eq!(mapping.sql_type, "enum('a','b')");
+        assert!(mapping.warning.is_none());
+
+        let mapping = m.from_canonical(&CanonicalType::Set(vec!["x".into()]));
+        assert_eq!(mapping.sql_type, "set('x')");
+        assert!(mapping.warning.is_none());
+    }
+
+    #[test]
+    fn test_from_canonical_spatial() {
+        let m = MySqlTypeMapper;
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Geometry).sql_type,
+            "geometry"
+        );
+        assert_eq!(m.from_canonical(&CanonicalType::Point).sql_type, "point");
+        assert_eq!(
+            m.from_canonical(&CanonicalType::LineString).sql_type,
+            "linestring"
+        );
+        assert_eq!(
+            m.from_canonical(&CanonicalType::Polygon).sql_type,
+            "polygon"
+        );
+    }
+
+    #[test]
+    fn test_map_default_value_nextval_returns_none() {
+        let m = MySqlTypeMapper;
+        assert_eq!(
+            m.map_default_value("nextval('users_id_seq'::regclass)", &CanonicalType::Int),
+            None
+        );
+    }
+
+    #[test]
+    fn test_map_default_value_strips_pg_cast() {
+        let m = MySqlTypeMapper;
+        assert_eq!(
+            m.map_default_value("'abc'::text", &CanonicalType::Varchar(255)),
+            Some("'abc'".to_string())
+        );
+        assert_eq!(
+            m.map_default_value("123::integer", &CanonicalType::Int),
+            Some("123".to_string())
+        );
+    }
+
+    #[test]
+    fn test_map_default_value_now_case_insensitive() {
+        let m = MySqlTypeMapper;
+        assert_eq!(
+            m.map_default_value("NOW()", &CanonicalType::DateTime { fsp: 0 }),
+            Some("CURRENT_TIMESTAMP".to_string())
+        );
+        assert_eq!(
+            m.map_default_value("Now()", &CanonicalType::DateTime { fsp: 0 }),
+            Some("CURRENT_TIMESTAMP".to_string())
+        );
+    }
+
+    #[test]
+    fn test_map_default_value_whitespace_trim() {
+        let m = MySqlTypeMapper;
+        assert_eq!(
+            m.map_default_value("  42  ", &CanonicalType::Int),
             Some("42".to_string())
         );
     }
