@@ -24,7 +24,8 @@ pub fn compare_schemas_cross(
     for table in source {
         if !target_map.contains_key(table.name.as_str()) {
             id_counter += 1;
-            let (mapped_table, warnings) = map_table_columns(table, source_mapper, target_mapper);
+            let (mapped_table, warnings, prerequisites) =
+                map_table_columns(table, source_mapper, target_mapper);
             diffs.push(DiffItem {
                 id: id_counter.to_string(),
                 diff_type: DiffType::TableAdded,
@@ -32,7 +33,14 @@ pub fn compare_schemas_cross(
                 object_name: None,
                 source_def: Some(format!("{} columns", table.columns.len())),
                 target_def: None,
-                sql: sql_gen.generate_create_table(&mapped_table),
+                sql: {
+                    let mut full_sql = prerequisites.join("\n");
+                    if !full_sql.is_empty() {
+                        full_sql.push('\n');
+                    }
+                    full_sql.push_str(&sql_gen.generate_create_table(&mapped_table));
+                    full_sql
+                },
                 selected: true,
                 warnings,
             });
@@ -76,12 +84,14 @@ pub fn compare_schemas_cross(
 }
 
 /// Map a table's columns through source->canonical->target, collecting warnings.
+/// Returns (mapped_table, warnings, prerequisite_sql_statements).
 fn map_table_columns(
     table: &TableSchema,
     source_mapper: &dyn TypeMapper,
     target_mapper: &dyn TypeMapper,
-) -> (TableSchema, Vec<TypeWarning>) {
+) -> (TableSchema, Vec<TypeWarning>, Vec<String>) {
     let mut warnings = Vec::new();
+    let mut prerequisites: Vec<String> = Vec::new();
     let mapped_columns: Vec<Column> = table
         .columns
         .iter()
@@ -108,6 +118,10 @@ fn map_table_columns(
                     message: msg.clone(),
                     severity: WarningSeverity::Degraded,
                 });
+            }
+
+            if let Some(pre_sql) = mapping.prerequisite_sql {
+                prerequisites.push(pre_sql);
             }
 
             let mapped_default = col
@@ -215,7 +229,15 @@ fn map_table_columns(
         unique_constraints: mapped_ucs,
     };
 
-    (mapped_table, warnings)
+    (mapped_table, warnings, prerequisites)
+}
+
+/// Prepend prerequisite SQL (e.g., CREATE TYPE) before the main DDL statement.
+fn prepend_prerequisite(mapping: &TypeMapping, ddl: String) -> String {
+    match &mapping.prerequisite_sql {
+        Some(pre) => format!("{}\n{}", pre, ddl),
+        None => ddl,
+    }
 }
 
 /// Map a single column through source->canonical->target.
@@ -358,7 +380,10 @@ fn compare_tables_cross(
                 object_name: Some(col.name.clone()),
                 source_def: Some(col.data_type.clone()),
                 target_def: None,
-                sql: sql_gen.generate_add_column(&source.name, &mapped_col),
+                sql: prepend_prerequisite(
+                    &mapping,
+                    sql_gen.generate_add_column(&source.name, &mapped_col),
+                ),
                 selected: true,
                 warnings,
             });
@@ -405,7 +430,10 @@ fn compare_tables_cross(
                     object_name: Some(col.name.clone()),
                     source_def: Some(column_detail_mapped(&mapped_col)),
                     target_def: Some(column_detail_mapped(target_col)),
-                    sql: sql_gen.generate_modify_column(&source.name, &mapped_col),
+                    sql: prepend_prerequisite(
+                        &mapping,
+                        sql_gen.generate_modify_column(&source.name, &mapped_col),
+                    ),
                     selected: true,
                     warnings,
                 });

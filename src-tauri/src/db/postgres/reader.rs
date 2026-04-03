@@ -103,8 +103,12 @@ impl SchemaReader for PostgresDriver {
 
 impl PostgresDriver {
     async fn fetch_all_columns(&self) -> Result<Vec<crate::db::ColumnRow>> {
-        let rows: Vec<(String, String, String, String, Option<String>, i32)> = sqlx::query_as(
-            r#"
+        // Use udt_name for USER-DEFINED (enum) and ARRAY types to get the real type name.
+        // For arrays, udt_name starts with '_' (e.g., '_int4' for integer[]).
+        // For enums, data_type = 'USER-DEFINED' and udt_name = the enum type name.
+        let rows: Vec<(String, String, String, String, String, Option<String>, i32)> =
+            sqlx::query_as(
+                r#"
             SELECT
                 table_name,
                 column_name,
@@ -112,38 +116,116 @@ impl PostgresDriver {
                     WHEN data_type = 'character varying' THEN 'varchar(' || character_maximum_length || ')'
                     WHEN data_type = 'character' THEN 'char(' || character_maximum_length || ')'
                     WHEN data_type = 'numeric' THEN 'numeric(' || numeric_precision || ',' || numeric_scale || ')'
+                    WHEN data_type = 'ARRAY' THEN udt_name
+                    WHEN data_type = 'USER-DEFINED' THEN udt_name
                     ELSE data_type
                 END as data_type,
+                udt_name,
                 is_nullable,
                 column_default,
                 ordinal_position
             FROM information_schema.columns
             WHERE table_schema = 'public'
             ORDER BY table_name, ordinal_position
-            "#
+            "#,
+            )
+            .fetch_all(&self.pool)
+            .await?;
+
+        // Fetch enum values for all user-defined enum types in public schema
+        let enum_values = self.fetch_enum_values().await?;
+
+        Ok(rows
+            .into_iter()
+            .map(
+                |(table_name, name, data_type, udt_name, nullable, default, pos)| {
+                    let auto_increment = default
+                        .as_ref()
+                        .map(|d| d.starts_with("nextval("))
+                        .unwrap_or(false);
+
+                    // Resolve the final data_type:
+                    // - Arrays: udt_name starts with '_', convert to element_type[]
+                    // - Enums: if we have enum values, format as enum('a','b','c')
+                    // - Otherwise: use the CASE result as-is
+                    let resolved_type = if udt_name.starts_with('_') {
+                        // Array type: strip leading '_' and map to base type + '[]'
+                        let element_udt = &udt_name[1..];
+                        let element_type = Self::udt_to_sql_type(element_udt);
+                        format!("{}[]", element_type)
+                    } else if let Some(values) = enum_values.get(&udt_name) {
+                        // User-defined enum: format as enum('val1','val2',...)
+                        let vals = values
+                            .iter()
+                            .map(|v| format!("'{}'", v))
+                            .collect::<Vec<_>>()
+                            .join(",");
+                        format!("enum({})", vals)
+                    } else {
+                        data_type
+                    };
+
+                    crate::db::ColumnRow {
+                        table_name,
+                        name,
+                        data_type: resolved_type,
+                        nullable: nullable == "YES",
+                        default_value: if auto_increment { None } else { default },
+                        auto_increment,
+                        comment: None,
+                        ordinal_position: pos as u32,
+                    }
+                },
+            )
+            .collect())
+    }
+
+    /// Fetch all enum type values from pg_enum for types in the public schema.
+    async fn fetch_enum_values(&self) -> Result<std::collections::HashMap<String, Vec<String>>> {
+        let rows: Vec<(String, String)> = sqlx::query_as(
+            r#"
+            SELECT t.typname, e.enumlabel
+            FROM pg_type t
+            JOIN pg_enum e ON t.oid = e.enumtypid
+            JOIN pg_namespace n ON t.typnamespace = n.oid
+            WHERE n.nspname = 'public'
+            ORDER BY t.typname, e.enumsortorder
+            "#,
         )
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows
-            .into_iter()
-            .map(|(table_name, name, data_type, nullable, default, pos)| {
-                let auto_increment = default
-                    .as_ref()
-                    .map(|d| d.starts_with("nextval("))
-                    .unwrap_or(false);
-                crate::db::ColumnRow {
-                    table_name,
-                    name,
-                    data_type,
-                    nullable: nullable == "YES",
-                    default_value: if auto_increment { None } else { default },
-                    auto_increment,
-                    comment: None,
-                    ordinal_position: pos as u32,
-                }
-            })
-            .collect())
+        let mut map: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
+        for (type_name, label) in rows {
+            map.entry(type_name).or_default().push(label);
+        }
+        Ok(map)
+    }
+
+    /// Map PostgreSQL udt_name (internal name) to SQL type string.
+    fn udt_to_sql_type(udt_name: &str) -> &str {
+        match udt_name {
+            "int2" => "smallint",
+            "int4" => "integer",
+            "int8" => "bigint",
+            "float4" => "real",
+            "float8" => "double precision",
+            "bool" => "boolean",
+            "varchar" => "character varying",
+            "bpchar" => "character",
+            "text" => "text",
+            "bytea" => "bytea",
+            "numeric" => "numeric",
+            "date" => "date",
+            "time" | "timetz" => "time",
+            "timestamp" | "timestamptz" => "timestamp",
+            "json" => "json",
+            "jsonb" => "jsonb",
+            "uuid" => "uuid",
+            "inet" => "inet",
+            other => other,
+        }
     }
 
     async fn fetch_all_primary_keys(&self) -> Result<Vec<crate::db::PkRow>> {

@@ -149,11 +149,24 @@ impl TypeMapper for PostgresTypeMapper {
             CanonicalType::Jsonb => TypeMapping::direct("jsonb"),
             CanonicalType::Boolean => TypeMapping::direct("boolean"),
             CanonicalType::Enum(values) => {
-                let max_len = values.iter().map(|v| v.len()).max().unwrap_or(255);
-                TypeMapping::degraded(
-                    format!("character varying({})", max_len.max(255)),
-                    "enum → varchar: PostgreSQL requires CREATE TYPE for native enums",
-                )
+                // Generate a deterministic type name from enum values
+                let type_name = format!(
+                    "enum_{}",
+                    values
+                        .join("_")
+                        .chars()
+                        .filter(|c| c.is_alphanumeric() || *c == '_')
+                        .collect::<String>()
+                );
+                let vals = values
+                    .iter()
+                    .map(|v| format!("'{}'", v))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let create_sql = format!(
+                    "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '{type_name}') THEN CREATE TYPE \"{type_name}\" AS ENUM ({vals}); END IF; END $$;"
+                );
+                TypeMapping::with_prerequisite(format!("\"{}\"", type_name), create_sql)
             }
             CanonicalType::Set(values) => {
                 let _ = values;
@@ -479,14 +492,30 @@ mod tests {
     }
 
     #[test]
-    fn test_from_canonical_enum_degraded() {
+    fn test_from_canonical_enum_creates_type() {
         let m = PostgresTypeMapper;
         let mapping = m.from_canonical(&CanonicalType::Enum(vec![
             "active".into(),
             "inactive".into(),
         ]));
-        assert!(mapping.sql_type.starts_with("character varying"));
-        assert!(mapping.warning.is_some());
+        // Should use a generated type name, not varchar
+        assert!(
+            mapping.sql_type.contains("enum_"),
+            "should use generated enum type name, got: {}",
+            mapping.sql_type
+        );
+        // Should have prerequisite SQL for CREATE TYPE
+        assert!(mapping.prerequisite_sql.is_some());
+        let pre = mapping.prerequisite_sql.unwrap();
+        assert!(
+            pre.contains("CREATE TYPE"),
+            "should contain CREATE TYPE, got: {}",
+            pre
+        );
+        assert!(pre.contains("'active'"), "should contain enum values");
+        assert!(pre.contains("'inactive'"), "should contain enum values");
+        // No warning (this is not a degradation)
+        assert!(mapping.warning.is_none());
     }
 
     #[test]

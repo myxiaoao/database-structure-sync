@@ -9,6 +9,8 @@ pub struct TypeMapping {
     pub warning: Option<String>,
     /// True when the type cannot be mapped at all
     pub skipped: bool,
+    /// SQL that must run before the column DDL (e.g., CREATE TYPE for PG enums)
+    pub prerequisite_sql: Option<String>,
 }
 
 impl TypeMapping {
@@ -17,6 +19,7 @@ impl TypeMapping {
             sql_type: sql_type.into(),
             warning: None,
             skipped: false,
+            prerequisite_sql: None,
         }
     }
 
@@ -25,6 +28,7 @@ impl TypeMapping {
             sql_type: sql_type.into(),
             warning: Some(warning.into()),
             skipped: false,
+            prerequisite_sql: None,
         }
     }
 
@@ -33,6 +37,16 @@ impl TypeMapping {
             sql_type: String::new(),
             warning: Some(original.into()),
             skipped: true,
+            prerequisite_sql: None,
+        }
+    }
+
+    pub fn with_prerequisite(sql_type: impl Into<String>, prerequisite: impl Into<String>) -> Self {
+        Self {
+            sql_type: sql_type.into(),
+            warning: None,
+            skipped: false,
+            prerequisite_sql: Some(prerequisite.into()),
         }
     }
 }
