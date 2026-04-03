@@ -263,7 +263,19 @@ fn compare_tables(
         }
     }
 
-    // Compare indexes
+    // Compare indexes, foreign keys, unique constraints
+    compare_indexes(source, target, sql_gen, diffs, id_counter);
+    compare_foreign_keys(source, target, sql_gen, diffs, id_counter);
+    compare_unique_constraints(source, target, sql_gen, diffs, id_counter);
+}
+
+pub(crate) fn compare_indexes(
+    source: &TableSchema,
+    target: &TableSchema,
+    sql_gen: &dyn SqlGenerator,
+    diffs: &mut Vec<DiffItem>,
+    id_counter: &mut u32,
+) {
     compare_named_items(
         &DiffConfig {
             table_name: &source.name,
@@ -281,8 +293,15 @@ fn compare_tables(
         id_counter,
         diffs,
     );
+}
 
-    // Compare foreign keys
+pub(crate) fn compare_foreign_keys(
+    source: &TableSchema,
+    target: &TableSchema,
+    sql_gen: &dyn SqlGenerator,
+    diffs: &mut Vec<DiffItem>,
+    id_counter: &mut u32,
+) {
     compare_named_items(
         &DiffConfig {
             table_name: &source.name,
@@ -300,8 +319,15 @@ fn compare_tables(
         id_counter,
         diffs,
     );
+}
 
-    // Compare unique constraints
+pub(crate) fn compare_unique_constraints(
+    source: &TableSchema,
+    target: &TableSchema,
+    sql_gen: &dyn SqlGenerator,
+    diffs: &mut Vec<DiffItem>,
+    id_counter: &mut u32,
+) {
     compare_named_items(
         &DiffConfig {
             table_name: &source.name,
