@@ -167,6 +167,12 @@ fn map_column(
 }
 
 /// Cross-db column comparison: compare on canonical type, ignore comments.
+///
+/// Differences from same-db comparison:
+/// - `data_type`: compared via CanonicalType (not raw strings), so `int(11)` == `integer`
+/// - `comment`: skipped because PostgreSQL reader doesn't populate column comments
+/// - `default_value`: compared after mapping through target mapper to normalize dialect
+///   differences (e.g., `now()` == `CURRENT_TIMESTAMP`, `true` == `1`)
 fn columns_equal_cross(
     source: &Column,
     target: &Column,
@@ -176,12 +182,18 @@ fn columns_equal_cross(
     let source_canonical = source_mapper.to_canonical(&source.data_type);
     let target_canonical = target_mapper.to_canonical(&target.data_type);
 
+    // Map source default value through the target mapper to normalize dialect
+    let mapped_source_default = source
+        .default_value
+        .as_ref()
+        .and_then(|d| target_mapper.map_default_value(d, &source_canonical));
+
     source.name == target.name
         && source_canonical == target_canonical
         && source.nullable == target.nullable
         && source.auto_increment == target.auto_increment
-    // Intentionally skip: comment (PG doesn't support column comments in the same way)
-    // Intentionally skip: default_value (compared via canonical mapping)
+        && mapped_source_default == target.default_value
+    // Intentionally skip: comment (PG reader doesn't support column comments)
 }
 
 fn column_detail_mapped(col: &Column) -> String {
@@ -742,6 +754,65 @@ mod tests {
                 .iter()
                 .map(|d| (&d.diff_type, &d.object_name))
                 .collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_default_value_difference_detected() {
+        let mut source_col = make_column("score", "int(11)");
+        source_col.default_value = Some("42".to_string());
+        let mut target_col = make_column("score", "integer");
+        target_col.default_value = Some("99".to_string());
+
+        let source = vec![make_table("users", vec![source_col])];
+        let target = vec![make_table("users", vec![target_col])];
+
+        let diffs = compare_schemas_cross(
+            &source,
+            &target,
+            &PostgresSqlGenerator as &dyn SqlGenerator,
+            &MySqlTypeMapper,
+            &PostgresTypeMapper,
+        );
+
+        let col_mods: Vec<_> = diffs
+            .iter()
+            .filter(|d| d.diff_type == DiffType::ColumnModified)
+            .collect();
+        assert_eq!(
+            col_mods.len(),
+            1,
+            "default value difference should be detected"
+        );
+    }
+
+    #[test]
+    fn test_default_value_dialect_normalized_no_false_positive() {
+        // MySQL "now()" and PG "CURRENT_TIMESTAMP" should be treated as equal
+        let mut source_col = make_column("created", "timestamp");
+        source_col.default_value = Some("now()".to_string());
+        let mut target_col = make_column("created", "timestamp");
+        target_col.default_value = Some("CURRENT_TIMESTAMP".to_string());
+
+        let source = vec![make_table("events", vec![source_col])];
+        let target = vec![make_table("events", vec![target_col])];
+
+        // PG source → MySQL target: PG's now() maps to MySQL's CURRENT_TIMESTAMP
+        let diffs = compare_schemas_cross(
+            &source,
+            &target,
+            &MySqlSqlGenerator as &dyn SqlGenerator,
+            &PostgresTypeMapper,
+            &MySqlTypeMapper,
+        );
+
+        let col_mods: Vec<_> = diffs
+            .iter()
+            .filter(|d| d.diff_type == DiffType::ColumnModified)
+            .collect();
+        assert!(
+            col_mods.is_empty(),
+            "now() vs CURRENT_TIMESTAMP should be treated as equal after normalization"
         );
     }
 }
