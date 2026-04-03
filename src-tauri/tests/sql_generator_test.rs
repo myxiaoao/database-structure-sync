@@ -676,8 +676,15 @@ fn pg_bigint_auto_increment_becomes_bigserial() {
     let sqlgen = PostgresSqlGenerator;
     let c = col("id", "bigint", false, true, 1);
     let sql = sqlgen.generate_add_column("users", &c);
-    assert!(sql.contains("BIGSERIAL"), "bigint auto_increment should use BIGSERIAL, got: {}", sql);
-    assert!(!sql.contains(" bigint"), "should not contain raw bigint type");
+    assert!(
+        sql.contains("BIGSERIAL"),
+        "bigint auto_increment should use BIGSERIAL, got: {}",
+        sql
+    );
+    assert!(
+        !sql.contains(" bigint"),
+        "should not contain raw bigint type"
+    );
 }
 
 #[test]
@@ -685,7 +692,11 @@ fn pg_smallint_auto_increment_becomes_smallserial() {
     let sqlgen = PostgresSqlGenerator;
     let c = col("id", "smallint", false, true, 1);
     let sql = sqlgen.generate_add_column("users", &c);
-    assert!(sql.contains("SMALLSERIAL"), "smallint auto_increment should use SMALLSERIAL, got: {}", sql);
+    assert!(
+        sql.contains("SMALLSERIAL"),
+        "smallint auto_increment should use SMALLSERIAL, got: {}",
+        sql
+    );
 }
 
 #[test]
@@ -693,7 +704,11 @@ fn pg_int_auto_increment_becomes_serial() {
     let sqlgen = PostgresSqlGenerator;
     let c = col("id", "integer", false, true, 1);
     let sql = sqlgen.generate_add_column("users", &c);
-    assert!(sql.contains("SERIAL"), "integer auto_increment should use SERIAL, got: {}", sql);
+    assert!(
+        sql.contains("SERIAL"),
+        "integer auto_increment should use SERIAL, got: {}",
+        sql
+    );
     // Should not be BIGSERIAL or SMALLSERIAL
     assert!(!sql.contains("BIGSERIAL"));
     assert!(!sql.contains("SMALLSERIAL"));
@@ -704,7 +719,11 @@ fn pg_modify_column_auto_increment_creates_sequence() {
     let sqlgen = PostgresSqlGenerator;
     let c = col("id", "integer", false, true, 1);
     let sql = sqlgen.generate_modify_column("users", &c);
-    assert!(sql.contains("CREATE SEQUENCE IF NOT EXISTS"), "should create sequence, got: {}", sql);
+    assert!(
+        sql.contains("CREATE SEQUENCE IF NOT EXISTS"),
+        "should create sequence, got: {}",
+        sql
+    );
     assert!(sql.contains("nextval("), "should set default to nextval");
     assert!(sql.contains("OWNED BY"), "should set sequence ownership");
 }
@@ -724,5 +743,9 @@ fn pg_create_table_bigint_auto_increment_uses_bigserial() {
         unique_constraints: vec![],
     };
     let sql = sqlgen.generate_create_table(&table);
-    assert!(sql.contains("BIGSERIAL"), "CREATE TABLE with bigint auto_increment should use BIGSERIAL, got: {}", sql);
+    assert!(
+        sql.contains("BIGSERIAL"),
+        "CREATE TABLE with bigint auto_increment should use BIGSERIAL, got: {}",
+        sql
+    );
 }
