@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-04-03
+
+### Added
+- **Cross-database type synchronization** — MySQL, PostgreSQL, and MariaDB schemas can now be compared and synchronized in all directions
+- Canonical intermediate type system (`CanonicalType`) with type mappers for MySQL, PostgreSQL, and MariaDB
+- Type mapping warnings: inline icons on diff tree items and a summary panel showing degraded/skipped type conversions
+- PostgreSQL enum support: reads enum values via `pg_enum` and generates `CREATE TYPE AS ENUM` when targeting PostgreSQL
+- PostgreSQL array type support: reads array columns via `udt_name` and maps them correctly (e.g., `integer[]`)
+- Default value dialect normalization for cross-database comparison (e.g., `now()` ↔ `CURRENT_TIMESTAMP`)
+- MariaDB independent type mapper with native `uuid`, `inet6` support
+
+### Fixed
+- Frontend `DiffType` now correctly uses backend `snake_case` serialization format, fixing diff item color/icon/badge matching
+- Skipped (unmappable) columns now generate visible DiffItems with warnings instead of being silently dropped
+- `CREATE TABLE` in cross-db mode correctly filters skipped columns from primary keys, indexes, foreign keys, and unique constraints
+- PostgreSQL `auto_increment` columns now use correct serial variant (`SERIAL`/`BIGSERIAL`/`SMALLSERIAL`) based on integer width
+- PostgreSQL `ALTER COLUMN` for auto_increment now generates proper `CREATE SEQUENCE` + `SET DEFAULT nextval()` + `OWNED BY`
+
+### Changed
+- Cross-database comparison no longer blocked in UI — replaced warning toast with full comparison support
+- `TypeMapping` struct extended with `prerequisite_sql` for DDL that must run before column definitions (e.g., `CREATE TYPE`)
+
 ## [1.3.0] - 2026-03-27
 
 ### Added
