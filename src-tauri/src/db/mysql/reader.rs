@@ -5,6 +5,18 @@ use sqlx::{MySql, Pool, mysql::MySqlPoolOptions};
 use crate::db::traits::SchemaReader;
 use crate::models::*;
 
+/// Raw column row fetched from information_schema.
+type ColumnQueryRow = (
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+    String,
+    Option<String>,
+    u32,
+);
+
 pub struct MySqlDriver {
     pool: Pool<MySql>,
 }
@@ -109,16 +121,7 @@ impl SchemaReader for MySqlDriver {
 
 impl MySqlDriver {
     async fn fetch_all_columns(&self) -> Result<Vec<crate::db::ColumnRow>> {
-        let rows: Vec<(
-            String,
-            String,
-            String,
-            String,
-            Option<String>,
-            String,
-            Option<String>,
-            u32,
-        )> = sqlx::query_as(
+        let rows: Vec<ColumnQueryRow> = sqlx::query_as(
             r#"
             SELECT
                 CAST(table_name AS CHAR),

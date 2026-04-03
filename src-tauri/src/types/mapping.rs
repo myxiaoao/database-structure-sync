@@ -42,7 +42,9 @@ pub trait TypeMapper: Send + Sync {
     /// Source raw type string → CanonicalType
     fn to_canonical(&self, raw_type: &str) -> CanonicalType;
 
-    /// CanonicalType → target type string + optional warning
+    /// CanonicalType → target type string + optional warning.
+    /// Takes `&self` because mappers may carry configuration state.
+    #[allow(clippy::wrong_self_convention)]
     fn from_canonical(&self, canonical: &CanonicalType) -> TypeMapping;
 
     /// Convert a source default value to target dialect.

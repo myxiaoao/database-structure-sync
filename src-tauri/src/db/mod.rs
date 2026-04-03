@@ -13,7 +13,6 @@ pub use traits::{SchemaReader, SqlGenerator};
 
 /// Raw row types for batch metadata queries.
 /// Each driver queries all tables at once and returns these intermediate types.
-
 pub struct ColumnRow {
     pub table_name: String,
     pub name: String,
@@ -55,6 +54,11 @@ pub struct UcRow {
     pub column_name: String,
 }
 
+/// (is_unique, index_type, columns)
+type IndexEntry = (bool, String, Vec<String>);
+/// (ref_table, columns, ref_columns, on_delete, on_update)
+type FkEntry = (String, Vec<String>, Vec<String>, String, String);
+
 /// Assemble raw metadata rows into Vec<TableSchema>, grouped by table name.
 pub fn assemble_schemas(
     table_names: Vec<String>,
@@ -88,8 +92,7 @@ pub fn assemble_schemas(
     }
 
     // Group indexes by table -> index_name
-    let mut index_map: HashMap<String, HashMap<String, (bool, String, Vec<String>)>> =
-        HashMap::new();
+    let mut index_map: HashMap<String, HashMap<String, IndexEntry>> = HashMap::new();
     for r in index_rows {
         let table_entry = index_map.entry(r.table_name).or_default();
         let idx_entry =
@@ -100,10 +103,7 @@ pub fn assemble_schemas(
     }
 
     // Group FKs by table -> constraint_name
-    let mut fk_map: HashMap<
-        String,
-        HashMap<String, (String, Vec<String>, Vec<String>, String, String)>,
-    > = HashMap::new();
+    let mut fk_map: HashMap<String, HashMap<String, FkEntry>> = HashMap::new();
     for r in fk_rows {
         let table_entry = fk_map.entry(r.table_name).or_default();
         let fk_entry = table_entry.entry(r.constraint_name).or_insert((
