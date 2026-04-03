@@ -1,21 +1,44 @@
 import { useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Download, Play, DatabaseZap, FileCode } from "lucide-react";
+import { Download, Play, DatabaseZap, FileCode, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { DiffTree } from "@/components/DiffTree";
 import { ConnectionSelector } from "./ConnectionSelector";
 import { useSync } from "@/hooks";
-import { DB_TYPE_LABELS } from "@/types";
-import type { Connection, DbType } from "@/types";
+import type { Connection, DiffItem } from "@/types";
 
-const MYSQL_FAMILY = new Set<string>(["mysql", "mariadb"]);
+function WarningsSummary({ items }: { items: DiffItem[] }) {
+  const { t } = useTranslation();
+  const allWarnings = items.flatMap((item) => item.warnings ?? []);
+  if (allWarnings.length === 0) return null;
 
-function isCrossDbType(source: Connection | undefined, target: Connection | undefined): boolean {
-  if (!source || !target) return false;
-  if (source.db_type === target.db_type) return false;
-  return !(MYSQL_FAMILY.has(source.db_type) && MYSQL_FAMILY.has(target.db_type));
+  const degraded = allWarnings.filter((w) => w.severity === "degraded");
+  const skipped = allWarnings.filter((w) => w.severity === "skipped");
+
+  return (
+    <div className="mx-5 mb-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
+      <div className="flex items-center gap-2 mb-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+        <AlertTriangle className="h-4 w-4" />
+        {t("sync.warningsSummaryTitle")} ({allWarnings.length})
+      </div>
+      <div className="space-y-1 text-xs text-muted-foreground">
+        {degraded.map((w, i) => (
+          <div key={`d-${i}`}>
+            <span className="text-amber-600 dark:text-amber-400">{t("sync.warningDegraded")}:</span>{" "}
+            {w.column_name} — {w.message}
+          </div>
+        ))}
+        {skipped.map((w, i) => (
+          <div key={`s-${i}`}>
+            <span className="text-red-600 dark:text-red-400">{t("sync.warningSkipped")}:</span>{" "}
+            {w.column_name} — {w.message}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 interface SyncPageProps {
@@ -56,25 +79,9 @@ export function SyncPage({ connections }: SyncPageProps) {
     isExporting,
   } = useSync({ connections });
 
-  const sourceConnection = connections.find((c) => c.id === sourceId);
-  const targetConnection = connections.find((c) => c.id === targetId);
-
   const onCompare = useCallback(() => {
-    if (isCrossDbType(sourceConnection, targetConnection)) {
-      toast.warning(
-        t("sync.crossDbWarning", {
-          source:
-            DB_TYPE_LABELS[(sourceConnection?.db_type as DbType) || ""] ||
-            sourceConnection?.db_type,
-          target:
-            DB_TYPE_LABELS[(targetConnection?.db_type as DbType) || ""] ||
-            targetConnection?.db_type,
-        })
-      );
-      return;
-    }
     handleCompare();
-  }, [sourceConnection, targetConnection, handleCompare, t]);
+  }, [handleCompare]);
 
   const onExportSql = useCallback(async () => {
     try {
@@ -150,6 +157,7 @@ export function SyncPage({ connections }: SyncPageProps) {
       {/* Results */}
       {diffResult ? (
         <>
+          <WarningsSummary items={diffResult?.items ?? []} />
           <div
             className={`flex-1 grid grid-cols-[2fr_3fr] gap-0 min-h-0 overflow-hidden border-t transition-opacity duration-150 ${isComparing ? "opacity-40 pointer-events-none" : ""}`}
           >

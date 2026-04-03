@@ -1,6 +1,15 @@
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, Table, Edit, Key, Link, Fingerprint } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Table,
+  Edit,
+  Key,
+  Link,
+  Fingerprint,
+  AlertTriangle,
+} from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DiffItem } from "@/lib/api";
@@ -106,6 +115,11 @@ function DiffItemRow({
       />
       {getDiffIcon(item.diff_type)}
       <span className="flex-1 truncate font-medium">{item.object_name || item.table_name}</span>
+      {(item.warnings?.length ?? 0) > 0 && (
+        <span title={item.warnings!.map((w) => w.message).join("\n")}>
+          <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
+        </span>
+      )}
       <span
         className={`text-[10px] px-2 py-0.5 rounded-md font-medium shrink-0 ${badge.className}`}
       >

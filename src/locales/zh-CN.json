@@ -87,7 +87,10 @@
     "emptyDesc": "在上方选择源数据库和目标数据库，然后点击「开始比较」检测结构差异。",
     "selectedCount": "已选择 {{count}} 项变更",
     "noSelected": "未选择变更",
-    "crossDbWarning": "源数据库 ({{source}}) 与目标数据库 ({{target}}) 类型不同，暂不支持跨数据库类型的结构同步",
+    "crossDbInfo": "跨数据库比较：{{source}} → {{target}}",
+    "warningsSummaryTitle": "类型映射警告",
+    "warningDegraded": "类型降级",
+    "warningSkipped": "类型跳过",
     "executeSuccess": "同步执行成功",
     "executeFailed": "同步失败：{{error}}",
     "compareFailed": "比较失败：{{error}}"
