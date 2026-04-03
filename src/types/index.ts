@@ -62,6 +62,16 @@ export interface ConnectionInput extends ConnectionBase {
   id?: string;
 }
 
+export type WarningSeverity = "degraded" | "skipped";
+
+export interface TypeWarning {
+  column_name: string;
+  source_type: string;
+  target_type: string;
+  message: string;
+  severity: WarningSeverity;
+}
+
 export interface DiffItem {
   id: string;
   diff_type: DiffType;
@@ -71,6 +81,7 @@ export interface DiffItem {
   target_def?: string;
   sql: string;
   selected: boolean;
+  warnings?: TypeWarning[];
 }
 
 export interface DiffResult {

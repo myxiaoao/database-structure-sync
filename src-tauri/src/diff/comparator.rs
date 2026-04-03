@@ -64,6 +64,7 @@ fn compare_named_items<T: NamedItem + PartialEq>(
                 target_def: None,
                 sql: (config.generate_add)(sql_gen, config.table_name, item),
                 selected: true,
+                warnings: vec![],
             });
         } else if let Some(target_item) = target_map.get(item.name()) {
             if item != *target_item {
@@ -81,6 +82,7 @@ fn compare_named_items<T: NamedItem + PartialEq>(
                         (config.generate_add)(sql_gen, config.table_name, item)
                     ),
                     selected: true,
+                    warnings: vec![],
                 });
             }
         }
@@ -99,6 +101,7 @@ fn compare_named_items<T: NamedItem + PartialEq>(
                 target_def: Some((config.target_def)(item)),
                 sql: (config.generate_drop)(sql_gen, config.table_name, item.name()),
                 selected: true,
+                warnings: vec![],
             });
         }
     }
@@ -149,6 +152,7 @@ pub fn compare_schemas(
                 target_def: None,
                 sql: sql_gen.generate_create_table(table),
                 selected: true,
+                warnings: vec![],
             });
         }
     }
@@ -166,6 +170,7 @@ pub fn compare_schemas(
                 target_def: Some(format!("{} columns", table.columns.len())),
                 sql: sql_gen.generate_drop_table(&table.name),
                 selected: true,
+                warnings: vec![],
             });
         }
     }
@@ -217,6 +222,7 @@ fn compare_tables(
                 target_def: None,
                 sql: sql_gen.generate_add_column(&source.name, col),
                 selected: true,
+                warnings: vec![],
             });
         } else if let Some(target_col) = target_cols.get(col.name.as_str()) {
             if col != *target_col {
@@ -234,6 +240,7 @@ fn compare_tables(
                     target_def: Some(column_detail(target_col)),
                     sql: sql_gen.generate_modify_column(&source.name, col),
                     selected: true,
+                    warnings: vec![],
                 });
             }
         }
@@ -251,6 +258,7 @@ fn compare_tables(
                 target_def: Some(col.data_type.clone()),
                 sql: sql_gen.generate_drop_column(&source.name, &col.name),
                 selected: true,
+                warnings: vec![],
             });
         }
     }

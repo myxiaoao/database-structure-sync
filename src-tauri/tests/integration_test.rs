@@ -1369,6 +1369,7 @@ fn test_diff_item_serialize_deserialize() {
         target_def: None,
         sql: "ALTER TABLE users ADD COLUMN email VARCHAR(255)".to_string(),
         selected: true,
+        warnings: vec![],
     };
 
     let json = serde_json::to_string(&item).unwrap();
@@ -1396,6 +1397,7 @@ fn test_diff_item_with_none_fields() {
         target_def: None,
         sql: "CREATE TABLE orders".to_string(),
         selected: false,
+        warnings: vec![],
     };
 
     let json = serde_json::to_string(&item).unwrap();
@@ -1423,6 +1425,7 @@ fn test_diff_result_serialize_deserialize() {
                 target_def: None,
                 sql: "CREATE TABLE users".to_string(),
                 selected: true,
+                warnings: vec![],
             },
             DiffItem {
                 id: "2".to_string(),
@@ -1433,6 +1436,7 @@ fn test_diff_result_serialize_deserialize() {
                 target_def: Some("TEXT".to_string()),
                 sql: "ALTER TABLE orders DROP COLUMN old_col".to_string(),
                 selected: true,
+                warnings: vec![],
             },
         ],
         source_tables: 5,
