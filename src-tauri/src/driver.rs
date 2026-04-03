@@ -7,6 +7,9 @@ use database_structure_sync_lib::error::{AppError, AppResult};
 use database_structure_sync_lib::models::{Connection, DbType};
 use database_structure_sync_lib::ssh::SshTunnel;
 use database_structure_sync_lib::storage::ConfigStore;
+use database_structure_sync_lib::types::{
+    MariaDbTypeMapper, MySqlTypeMapper, PostgresTypeMapper, TypeMapper,
+};
 
 pub struct AppState {
     pub config_store: Arc<Mutex<ConfigStore>>,
@@ -91,6 +94,14 @@ impl DatabaseDriver {
         match self {
             DatabaseDriver::MySql(d) => d,
             DatabaseDriver::Postgres(d) => d,
+        }
+    }
+
+    pub(crate) fn as_type_mapper(&self, actual_db_type: &DbType) -> Box<dyn TypeMapper> {
+        match actual_db_type {
+            DbType::MySQL => Box::new(MySqlTypeMapper),
+            DbType::MariaDB => Box::new(MariaDbTypeMapper),
+            DbType::PostgreSQL => Box::new(PostgresTypeMapper),
         }
     }
 

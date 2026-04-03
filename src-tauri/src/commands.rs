@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 use tauri::State;
 
-use database_structure_sync_lib::diff::compare_schemas;
+use database_structure_sync_lib::diff::{compare_schemas, compare_schemas_cross};
 use database_structure_sync_lib::models::{Connection, ConnectionInput, DiffResult};
 
 use crate::driver::{AppState, DatabaseDriver, create_driver, load_connection};
@@ -178,11 +178,23 @@ pub(crate) async fn compare_databases(
         source_tables.len(),
         target_tables.len()
     );
-    let items = compare_schemas(
-        &source_tables,
-        &target_tables,
-        target_driver.as_sql_generator(),
-    );
+    let items = if source_conn.db_type == target_conn.db_type {
+        compare_schemas(
+            &source_tables,
+            &target_tables,
+            target_driver.as_sql_generator(),
+        )
+    } else {
+        let source_mapper = source_driver.as_type_mapper(&source_conn.db_type);
+        let target_mapper = target_driver.as_type_mapper(&target_conn.db_type);
+        compare_schemas_cross(
+            &source_tables,
+            &target_tables,
+            target_driver.as_sql_generator(),
+            source_mapper.as_ref(),
+            target_mapper.as_ref(),
+        )
+    };
 
     info!("Comparison complete: {} differences found", items.len());
 
